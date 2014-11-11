@@ -6,6 +6,7 @@ import cpw.mods.fml.common.Mod.EventHandler;
 import cpw.mods.fml.common.Mod.Instance;
 import cpw.mods.fml.common.event.*;
 import cpw.mods.fml.relauncher.Side;
+import mytown._datasource.Datasource;
 import mytown.commands.*;
 import mytown.config.Config;
 import mytown.config.FlagsConfig;
@@ -95,6 +96,8 @@ public class MyTown {
 
     @EventHandler
     public void serverStarting(FMLServerStartingEvent ev) {
+        Datasource.get().start();
+
         registerCommands();
         Commands.populateCompletionMap();
         // This needs to be after registerCommands... might want to move both methods...
@@ -109,6 +112,7 @@ public class MyTown {
     @EventHandler
     public void serverStopping(FMLServerStoppingEvent ev) {
         config.save();
+        Datasource.get().stop();
         DatasourceProxy.stop();
     }
 

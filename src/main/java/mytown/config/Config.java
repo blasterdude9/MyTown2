@@ -4,6 +4,8 @@ import cpw.mods.fml.common.registry.GameRegistry;
 import mytown.core.utils.config.ConfigProperty;
 import net.minecraft.init.Items;
 
+import java.util.UUID;
+
 // TODO More config!
 public class Config {
     /* ----- General Config ----- */
@@ -14,10 +16,16 @@ public class Config {
     @ConfigProperty(category = "general", name = "SafeModeMessage", comment = "Message to display to users when MyTown is in safemode.")
     public static String safeModeMsg = "MyTown is in safe mode. Please tell a server admin!";
 
+    @ConfigProperty(category = "general", name="ServerID", comment = "Holds the ID of this server.\n Do NOT change this unless you know what your doing.\nDoing so will remove all town blocks, plots, etc from this server!")
+    public static String serverID = UUID.randomUUID().toString();
+
 	/* ----- Datasource Config ----- */
 
     @ConfigProperty(category = "datasource", name = "Type", comment = "Datasource Type. Eg: MySQL, SQLite, etc.")
     public static String dbType = "SQLite";
+
+    @ConfigProperty(category = "datasource", name = "ThreadCount", comment = "The number of Threads to run inserts, updates, and deletes in.\nWarning: Modify with care\nDefaults to 1.")
+    public static int dbThreadCount = 1;
 
     /* ----- Formatter Config ----- */
     // TODO Finish default formats (Colors, more fields, etc)

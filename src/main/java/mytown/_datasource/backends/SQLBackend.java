@@ -28,8 +28,7 @@ public abstract class SQLBackend extends DatasourceBackend {
     protected String dsn = "";
     protected Connection conn = null;
 
-    @Override
-    protected boolean init() {
+    public SQLBackend() {
         // Add user-defined properties
         for (String prop : userProperties) {
             String[] pair = prop.split("=");
@@ -43,13 +42,14 @@ public abstract class SQLBackend extends DatasourceBackend {
             DriverManager.registerDriver(driver);
         } catch (Exception ex) {
             log.error("Failed to register JDBC Driver!", ex);
-            return false;
         }
 
-        prefix = "test_" + prefix;
+        prefix = "test_" + prefix; // TODO Remove test_
+    }
 
+    @Override
+    protected boolean init() {
         SQLSchema.init(prefix, AUTO_INCREMENT, getConnection());
-
         return true;
     }
 

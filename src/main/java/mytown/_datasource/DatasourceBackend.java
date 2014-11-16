@@ -8,7 +8,6 @@ import org.apache.logging.log4j.Logger;
  */
 public abstract class DatasourceBackend implements Runnable {
     protected final Logger log = LogManager.getLogger("MyTown2.Datasource.Backend");
-    private boolean initialized = false;
 
     /**
      * Initializes the backend
@@ -59,9 +58,6 @@ public abstract class DatasourceBackend implements Runnable {
 
     @Override
     public final void run() {
-        if (!initialized) {
-            initialized = init();
-        }
         while (Datasource.get().running.get() || !Datasource.get().tasks.isEmpty()) {
             runTask(getTask());
             // TODO Sleep?

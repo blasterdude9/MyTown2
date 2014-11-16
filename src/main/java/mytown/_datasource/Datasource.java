@@ -1,13 +1,17 @@
 package mytown._datasource;
 
 import mytown.config.Config;
+import mytown.handlers.SafemodeHandler;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -18,25 +22,33 @@ public class Datasource {
     private final ExecutorService executorService = Executors.newFixedThreadPool(Config.dbThreadCount);
     public final AtomicBoolean running = new AtomicBoolean(true);
 
-    public void start() {
+    public void start() { // TODO Load everything out of the Datasource
         log.info("Starting datasource with {} threads", Config.dbThreadCount);
+
+        // Initialize the Backend
+        if (!DatasourceRegistry.initBackend()) {
+            log.error("Failed to initialize Datasource backend!");
+            SafemodeHandler.setSafemode(true);
+            return;
+        }
+
+        // Create a backend per-thread for task processing
         for (int t = 0; t < Config.dbThreadCount; t++) {
             executorService.execute(DatasourceRegistry.createBackend());
         }
-
-        HashMap<String, Object> args = new HashMap<String, Object>();
-        args.put("name", "Test");
-
-        ArrayList<String> keys = new ArrayList<String>();
-        keys.add("name");
-
-        addTask(new DatasourceTask(DatasourceTask.Type.DELETE, "Towns", args, keys));
     }
 
     public void stop() {
         log.info("Stopping datasource");
+        log.warn("This may take some time! Please do NOT force stop!");
+        log.info("{} tasks remaining", tasks.size());
         running.set(false);
-        // TODO Wait till all tasks are finished
+        executorService.shutdown();
+        try {
+            executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS); // TODO Maybe add a timeout?
+        } catch(InterruptedException e) {
+        }
+        log.info("Datasource stopped.");
     }
 
     /* ----- Task System ----- */

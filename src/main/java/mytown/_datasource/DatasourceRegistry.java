@@ -60,4 +60,8 @@ public final class DatasourceRegistry {
     }
 
     private DatasourceRegistry() {}
+
+    public static boolean initBackend() {
+        return createBackend().init(); // TODO Insert Server UUID and Worlds if they are not already in the datasource
+    }
 }

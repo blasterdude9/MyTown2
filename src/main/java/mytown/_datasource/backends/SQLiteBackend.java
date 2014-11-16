@@ -10,6 +10,10 @@ public class SQLiteBackend extends SQLBackend {
     @ConfigProperty(category = "datasource.sql", comment = "The database file path. Used by SQLite")
     private String dbPath = Constants.CONFIG_FOLDER + "data.db";
 
+    public SQLiteBackend() {
+        super();
+    }
+
     @Override
     protected boolean init() {
         this.dsn = "jdbc:sqlite:" + dbPath;

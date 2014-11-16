@@ -19,6 +19,10 @@ public class MySQLBackend extends SQLBackend {
     @ConfigProperty(category = "datasource.sql", comment = "The database name")
     private String database = "mytown";
 
+    public MySQLBackend() {
+        super();
+    }
+
     @Override
     protected boolean init() {
         this.dsn = "jdbc:mysql://" + host + "/" + database;

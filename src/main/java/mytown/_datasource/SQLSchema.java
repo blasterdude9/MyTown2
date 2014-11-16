@@ -17,13 +17,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public class SQLSchema {
     private static final Logger logger = LogManager.getLogger("MyTown2.Datasource.SQL.Schema");
-    private static AtomicBoolean isInitialized = new AtomicBoolean(false);
     private static List<SchemeUpdate> updates = new ArrayList<SchemeUpdate>();
     private static String prefix = "", autoIncrement = "";
 
     public static void init(String prefix, String autoIncrement, Connection conn) {
-        if (isInitialized.get()) return; // Only want to Initialize the schema once
-        isInitialized.set(true);
         SQLSchema.prefix = prefix;
         SQLSchema.autoIncrement = autoIncrement;
 

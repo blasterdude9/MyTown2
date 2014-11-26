@@ -17,6 +17,10 @@ public class BlockWhitelist {
     private int db_id;
     private FlagType flagType;
 
+    public BlockWhitelist(int id, int dim, int x, int y, int z, FlagType flagType) {
+        this(dim, x, y, z, flagType);
+        this.db_id = id;
+    }
 
     public BlockWhitelist(int dim, int x, int y, int z, FlagType flagType) {
         this.dim = dim;

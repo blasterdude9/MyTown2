@@ -81,7 +81,7 @@ public abstract class SQLBackend extends DatasourceBackend {
             loadResidentsToTowns();
             loadResidentsToPlots();
             loadTownsToNations();
-            // TODO Load BlockWhitelists
+            loadBlockWhitelists();
             loadSelectedTowns();
             loadFriends();
             loadFriendRequests();
@@ -441,6 +441,17 @@ public abstract class SQLBackend extends DatasourceBackend {
             Town t = Universe.get().getTown(rs.getString("town"));
             Nation n = Universe.get().getNation(rs.getString("nation"));
             n.addTown(t, rs.getString("rank"));
+        }
+    }
+
+    protected void loadBlockWhitelists() throws SQLException {
+        PreparedStatement stmt = prepare("SELECT * FROM " + prefix + "BlockWhitelists WHERE server=?");
+        stmt.setString(1, Config.serverID);
+        ResultSet rs = stmt.executeQuery();
+
+        while(rs.next()) {
+            BlockWhitelist bw = new BlockWhitelist(rs.getInt("id"), rs.getInt("dim"), rs.getInt("x"), rs.getInt("y"), rs.getInt("z"), FlagType.valueOf(rs.getString("flagName")));
+            Universe.get().getTown(rs.getString("town")).addBlockWhitelist(bw);
         }
     }
 

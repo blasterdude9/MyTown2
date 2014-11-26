@@ -16,7 +16,7 @@ public class Config {
     @ConfigProperty(category = "general", name = "SafeModeMessage", comment = "Message to display to users when MyTown is in safemode.")
     public static String safeModeMsg = "MyTown is in safe mode. Please tell a server admin!";
 
-    @ConfigProperty(category = "general", name="ServerID", comment = "Holds the ID of this server.\n Do NOT change this unless you know what your doing.\nDoing so will remove all town blocks, plots, etc from this server!")
+    @ConfigProperty(category = "general", name="ServerID", comment = "Holds the ID of this server. Can NOT be any larger than 36 characters long!\n Do NOT change this unless you know what your doing.\nDoing so will remove all town blocks, plots, etc from this server!")
     public static String serverID = UUID.randomUUID().toString();
 
 	/* ----- Datasource Config ----- */

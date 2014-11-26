@@ -21,10 +21,7 @@ public class MySQLBackend extends SQLBackend {
 
     public MySQLBackend() {
         super();
-    }
 
-    @Override
-    protected boolean init() {
         this.dsn = "jdbc:mysql://" + host + "/" + database;
 
         this.AUTO_INCREMENT = "AUTO_INCREMENT";
@@ -35,7 +32,6 @@ public class MySQLBackend extends SQLBackend {
         dbProperties.put("password", password);
         dbProperties.put("relaxAutoCommit", "true");
 
-        return super.init();
     }
 
     @Override

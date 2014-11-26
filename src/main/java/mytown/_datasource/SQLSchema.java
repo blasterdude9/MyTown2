@@ -102,8 +102,8 @@ public class SQLSchema {
                 "uuid CHAR(36) NOT NULL," +
                 "name VARCHAR(100) NOT NULL," +
                 "joined BIGINT NOT NULL," +
-                "extraBlocks INTEGER," +
                 "lastOnline BIGINT NOT NULL," +
+                "extraBlocks INTEGER," +
                 "PRIMARY KEY(uuid)" +
                 ");");
 
@@ -161,41 +161,37 @@ public class SQLSchema {
                 "y1 INTEGER NOT NULL," +
                 "z1 INTEGER NOT NULL," +
                 "x2 INTEGER NOT NULL," +
-                "y3 INTEGER NOT NULL," +
-                "z3 INTEGER NOT NULL," +
+                "y2 INTEGER NOT NULL," +
+                "z2 INTEGER NOT NULL," +
                 "CONSTRAINT fk_townplots_server FOREIGN KEY(server) REFERENCES %PREFIX%Servers(uuid) ON DELETE CASCADE," +
                 "CONSTRAINT fk_townplots_town FOREIGN KEY(town) REFERENCES %PREFIX%Towns(name) ON UPDATE CASCADE ON DELETE CASCADE," +
                 "CONSTRAINT fk_townplots_dim FOREIGN KEY(server, dim) REFERENCES %PREFIX%Worlds(server, dim) ON DELETE CASCADE," +
                 "PRIMARY KEY(id)" +
                 ");");
 
-        // Create "Join" Tables
-        addUpdate("10.9.2014.12", "Add ResidentsToTowns Table", "CREATE TABLE IF NOT EXISTS %PREFIX%ResidentsToTowns(" +
-                "resident CHAR(36) NOT NULL," +
-                "town VARCHAR(50) NOT NULL," +
-                "rank VARCHAR(100) NOT NULL," +
-                "CONSTRAINT fk_rts_resident FOREIGN KEY(resident) REFERENCES %PREFIX%Residents(uuid) ON DELETE CASCADE," +
-                "CONSTRAINT fk_rts_town FOREIGN KEY(town) REFERENCES %PREFIX%Towns(name) ON UPDATE CASCADE ON DELETE CASCADE," +
-                "CONSTRAINT fk_rts_rank FOREIGN KEY(town, rank) REFERENCES %PREFIX%Ranks(town, name) ON UPDATE CASCADE ON DELETE CASCADE," +
-                "PRIMARY KEY(resident, town)" +
+        // Flag Tables
+        addUpdate("10.9.2014.12", "Add UniverseFlags Table", "CREATE TABLE IF NOT EXISTS %PREFIX%UniverseFlags(" +
+                "name VARCHAR(50) NOT NULL," +
+                "serializedValue VARCHAR(400)," +
+                "PRIMARY KEY(name)" +
                 ");");
 
-        addUpdate("10.9.2014.13", "Add ResidentsToPlots", "CREATE TABLE IF NOT EXISTS %PREFIX%ResidentsToPlots(" +
-                "resident CHAR(36) NOT NULL," +
-                "plot INTEGER NOT NULL," +
-                "isOwner BOOLEAN," + // false if it's ONLY whitelisted, if neither then shouldn't be in this list
-                "CONSTRAINT fk_rtp_resident FOREIGN KEY(resident) REFERENCES %PREFIX%Residents(uuid) ON DELETE CASCADE," +
-                "CONSTRAINT fk_rtp_plot FOREIGN KEY(plot) REFERENCES %PREFIX%TownPlots(id) ON DELETE CASCADE," +
-                "PRIMARY KEY(resident, plot)" +
+        addUpdate("10.9.2014.13", "Add ServerFlags Table", "CREATE TABLE IF NOT EXISTS %PREFIX%ServerFlags(" +
+                "name VARCHAR(50) NOT NULL," +
+                "serializedValue VARCHAR(400)," +
+                "server CHAR(36) NOT NULL," +
+                "CONSTRAINT fk_sf_server FOREIGN KEY(server) REFERENCES %PREFIX%Servers(uuid) ON DELETE CASCADE," +
+                "PRIMARY KEY(server, name)" +
                 ");");
 
-        addUpdate("10.9.2014.14", "Add TownsToNations Table", "CREATE TABLE IF NOT EXISTS %PREFIX%TownsToNations(" +
-                "town VARCHAR(50) NOT NULL," +
-                "nation VARCHAR(32) NOT NULL," +
-                "rank CHAR(1) DEFAULT 'T'," +
-                "CONSTRAINT fk_ttn_town FOREIGN KEY(town) REFERENCES %PREFIX%Towns(name) ON UPDATE CASCADE ON DELETE CASCADE," +
-                "CONSTRAINT fk_ttn_nation FOREIGN KEY(nation) REFERENCES %PREFIX%Nations(name) ON UPDATE CASCADE ON DELETE CASCADE," +
-                "PRIMARY KEY(town, nation)" +
+        addUpdate("10.9.2014.14", "Add WorldFlags Table", "CREATE TABLE IF NOT EXISTS %PREFIX%WorldFlags(" +
+                "name VARCHAR(50) NOT NULL," +
+                "serializedValue VARCHAR(400)," +
+                "server CHAR(36) NOT NULL," +
+                "dim INTEGER NOT NULL," +
+                "CONSTRAINT fk_wf_server FOREIGN KEY(server) REFERENCES %PREFIX%Servers(uuid) ON DELETE CASCADE," +
+                "CONSTRAINT fk_wf_dim FOREIGN KEY(server, dim) REFERENCES %PREFIX%Worlds(server, dim) ON DELETE CASCADE," +
+                "PRIMARY KEY(server, dim, name)" +
                 ");");
 
         addUpdate("10.9.2014.15", "Add TownFlags Table", "CREATE TABLE IF NOT EXISTS %PREFIX%TownFlags(" +
@@ -210,11 +206,44 @@ public class SQLSchema {
                 "name VARCHAR(50) NOT NULL," +
                 "serializedValue VARCHAR(400)," +
                 "plot INTEGER NOT NULL," +
+                "server CHAR(36) NOT NULL," +
                 "CONSTRAINT fk_pf_plot FOREIGN KEY(plot) REFERENCES %PREFIX%TownPlots(id) ON DELETE CASCADE," +
-                "PRIMARY KEY(plot, name)" +
+                "CONSTRAINT fk_pf_server FOREIGN KEY(server) REFERENCES %PREFIX%Servers(uuid) ON DELETE CASCADE," +
+                "PRIMARY KEY(plot, server, name)" +
                 ");");
 
-        addUpdate("10.9.2014.17", "Add BlockWhitelists Table", "CREATE TABLE IF NOT EXISTS %PREFIX%BlockWhitelists(" +
+        // Create "Join" Tables
+        addUpdate("10.9.2014.17", "Add ResidentsToTowns Table", "CREATE TABLE IF NOT EXISTS %PREFIX%ResidentsToTowns(" +
+                "resident CHAR(36) NOT NULL," +
+                "town VARCHAR(50) NOT NULL," +
+                "rank VARCHAR(100) NOT NULL," +
+                "CONSTRAINT fk_rts_resident FOREIGN KEY(resident) REFERENCES %PREFIX%Residents(uuid) ON DELETE CASCADE," +
+                "CONSTRAINT fk_rts_town FOREIGN KEY(town) REFERENCES %PREFIX%Towns(name) ON UPDATE CASCADE ON DELETE CASCADE," +
+                "CONSTRAINT fk_rts_rank FOREIGN KEY(town, rank) REFERENCES %PREFIX%Ranks(town, name) ON UPDATE CASCADE ON DELETE CASCADE," +
+                "PRIMARY KEY(resident, town)" +
+                ");");
+
+        addUpdate("10.9.2014.18", "Add ResidentsToPlots", "CREATE TABLE IF NOT EXISTS %PREFIX%ResidentsToPlots(" +
+                "resident CHAR(36) NOT NULL," +
+                "plot INTEGER NOT NULL," +
+                "isOwner BOOLEAN," + // false if it's ONLY whitelisted, if neither then shouldn't be in this list
+                "server CHAR(36) NOT NULL," + // Just to shrink the number of results
+                "CONSTRAINT fk_rtp_resident FOREIGN KEY(resident) REFERENCES %PREFIX%Residents(uuid) ON DELETE CASCADE," +
+                "CONSTRAINT fk_rtp_server FOREIGN KEY(server) REFERENCES %PREFIX%Servers(uuid) ON DELETE CASCADE," +
+                "CONSTRAINT fk_rtp_plot FOREIGN KEY(plot) REFERENCES %PREFIX%TownPlots(id) ON DELETE CASCADE," +
+                "PRIMARY KEY(resident, plot)" +
+                ");");
+
+        addUpdate("10.9.2014.19", "Add TownsToNations Table", "CREATE TABLE IF NOT EXISTS %PREFIX%TownsToNations(" +
+                "town VARCHAR(50) NOT NULL," +
+                "nation VARCHAR(32) NOT NULL," +
+                "rank CHAR(1) DEFAULT 'T'," +
+                "CONSTRAINT fk_ttn_town FOREIGN KEY(town) REFERENCES %PREFIX%Towns(name) ON UPDATE CASCADE ON DELETE CASCADE," +
+                "CONSTRAINT fk_ttn_nation FOREIGN KEY(nation) REFERENCES %PREFIX%Nations(name) ON UPDATE CASCADE ON DELETE CASCADE," +
+                "PRIMARY KEY(town, nation)" +
+                ");");
+
+        addUpdate("10.9.2014.20", "Add BlockWhitelists Table", "CREATE TABLE IF NOT EXISTS %PREFIX%BlockWhitelists(" +
                 "id INTEGER %AUTOINCREMENT%," +
                 "server CHAR(36) NOT NULL," +
                 "dim INTEGER NOT NULL," +
@@ -230,7 +259,7 @@ public class SQLSchema {
                 "PRIMARY KEY(id)" +
                 ");");
 
-        addUpdate("10.9.2014.18", "Add SelectedTown Table", "CREATE TABLE IF NOT EXISTS %PREFIX%SelectedTown(" +
+        addUpdate("10.9.2014.21", "Add SelectedTown Table", "CREATE TABLE IF NOT EXISTS %PREFIX%SelectedTown(" +
                 "resident CHAR(36) NOT NULL," +
                 "town VARCHAR(50) NOT NULL," +
                 "CONSTRAINT fk_st_resident FOREIGN KEY(resident) REFERENCES %PREFIX%Residents(uuid) ON DELETE CASCADE," +
@@ -238,7 +267,7 @@ public class SQLSchema {
                 "PRIMARY KEY(resident)" +
                 ");");
 
-        addUpdate("10.9.2014.19", "Add Friends Table", "CREATE TABLE IF NOT EXISTS %PREFIX%Friends(" +
+        addUpdate("10.9.2014.22", "Add Friends Table", "CREATE TABLE IF NOT EXISTS %PREFIX%Friends(" +
                 "resident1 CHAR(36) NOT NULL," +
                 "resident2 CHAR(36) NOT NULL," +
                 "CONSTRAINT fk_st_resident1 FOREIGN KEY(resident1) REFERENCES %PREFIX%Residents(uuid) ON DELETE CASCADE," +
@@ -246,7 +275,7 @@ public class SQLSchema {
                 "PRIMARY KEY(resident1, resident2)" +
                 ");");
 
-        addUpdate("10.9.2014.20", "Add FriendRequests Table", "CREATE TABLE IF NOT EXISTS %PREFIX%FriendRequests(" +
+        addUpdate("10.9.2014.23", "Add FriendRequests Table", "CREATE TABLE IF NOT EXISTS %PREFIX%FriendRequests(" +
                 "resFrom CHAR(36) NOT NULL," +
                 "resTo CHAR(36) NOT NULL," +
                 "CONSTRAINT fk_fr_resfrom FOREIGN KEY(resFrom) REFERENCES %PREFIX%Residents(uuid) ON DELETE CASCADE," +
@@ -254,7 +283,7 @@ public class SQLSchema {
                 "PRIMARY KEY(resFrom, resTo)" +
                 ");");
 
-        addUpdate("10.9.2014.21", "Add TownInvites Table", "CREATE TABLE IF NOT EXISTS %PREFIX%TownInvites(" +
+        addUpdate("10.9.2014.24", "Add TownInvites Table", "CREATE TABLE IF NOT EXISTS %PREFIX%TownInvites(" +
                 "resident CHAR(36) NOT NULL," +
                 "town VARCHAR(50) NOT NULL," +
                 "CONSTRAINT fk_ti_resident FOREIGN KEY(resident) REFERENCES %PREFIX%Residents(uuid) ON DELETE CASCADE," +

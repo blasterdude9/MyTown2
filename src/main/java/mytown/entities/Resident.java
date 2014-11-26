@@ -2,6 +2,7 @@ package mytown.entities;
 
 import com.google.common.collect.ImmutableList;
 import mytown.MyTown;
+import mytown._datasource.Datasource;
 import mytown.api.interfaces.IBlockWhitelister;
 import mytown.api.interfaces.IHasPlots;
 import mytown.api.interfaces.IHasTowns;
@@ -32,6 +33,7 @@ import java.util.UUID;
 /**
  * @author Joe Goett
  */
+@Datasource.Table("Residents")
 public class Resident implements IHasPlots, IHasTowns, IPlotSelector, IBlockWhitelister { // TODO Make Comparable
     private EntityPlayer player;
     private UUID playerUUID;
@@ -124,6 +126,11 @@ public class Resident implements IHasPlots, IHasTowns, IPlotSelector, IBlockWhit
     public void setUUID(String uuid) {
         setUUID(UUID.fromString(uuid));
     }
+    
+    @Datasource.DBField(name = "uuid", where = true)
+    public String getUUIDString() {
+        return playerUUID.toString();
+    }
 
     /**
      * Returns the name of the player for display purposes. <br/>
@@ -131,6 +138,7 @@ public class Resident implements IHasPlots, IHasTowns, IPlotSelector, IBlockWhit
      *
      * @return
      */
+    @Datasource.DBField(name = "name")
     public String getPlayerName() {
         return playerName;
     }
@@ -140,6 +148,7 @@ public class Resident implements IHasPlots, IHasTowns, IPlotSelector, IBlockWhit
      *
      * @return
      */
+    @Datasource.DBField(name = "joined")
     public Date getJoinDate() {
         return joinDate;
     }
@@ -149,6 +158,7 @@ public class Resident implements IHasPlots, IHasTowns, IPlotSelector, IBlockWhit
      *
      * @return
      */
+    @Datasource.DBField(name = "lastOnline")
     public Date getLastOnline() {
         if (this.player != null) {
             lastOnline = new Date(); // TODO Do we REALLY need to update this each time its received, or can we do this better?
@@ -165,6 +175,7 @@ public class Resident implements IHasPlots, IHasTowns, IPlotSelector, IBlockWhit
         this.lastOnline = date;
     }
 
+    @Datasource.DBField(name = "extraBlocks")
     public int getExtraBlocks() {
         return extraBlocks;
     }

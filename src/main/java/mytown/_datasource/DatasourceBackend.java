@@ -10,10 +10,17 @@ public abstract class DatasourceBackend implements Runnable {
     protected final Logger log = LogManager.getLogger("MyTown2.Datasource.Backend");
 
     /**
-     * Initializes the backend
+     * Initializes the Backend. Once.
      * @return
      */
     protected abstract boolean init();
+
+    /**
+     * Loads the Backend
+     */
+    protected abstract void load();
+
+    protected abstract void close();
 
     /* ----- Queries ----- */
 
@@ -62,5 +69,6 @@ public abstract class DatasourceBackend implements Runnable {
             runTask(getTask());
             // TODO Sleep?
         }
+        close();
     }
 }

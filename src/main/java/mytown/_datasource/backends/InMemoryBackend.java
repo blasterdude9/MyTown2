@@ -9,7 +9,16 @@ import mytown._datasource.DatasourceTask;
 public class InMemoryBackend extends DatasourceBackend {
     @Override
     protected boolean init() {
+        log.warn("I doubt you really meant to select this Backend. NOTHING WILL BE SAVED!!!!!");
         return true;
+    }
+
+    @Override
+    protected void load() {
+    }
+
+    @Override
+    protected void close() {
     }
 
     @Override

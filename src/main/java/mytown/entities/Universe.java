@@ -2,6 +2,8 @@ package mytown.entities;
 
 import com.google.common.collect.ImmutableList;
 import com.mojang.authlib.GameProfile;
+import mytown._datasource.Datasource;
+import mytown._datasource.DatasourceTask;
 import mytown.api.interfaces.*;
 import mytown.config.Config;
 import mytown.entities.flag.Flag;
@@ -11,9 +13,7 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.server.MinecraftServer;
 
-import java.util.Hashtable;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 // TODO Add Datasource calls
 
@@ -25,9 +25,11 @@ public class Universe implements IHasServers, IHasResidents, IHasTowns, IHasNati
     private Map<String, Resident> residents;
     private Map<String, Town> towns;
     private Map<String, Nation> nations;
+    private List<Flag> flags = new ArrayList<Flag>();
 
     private Universe() {
         servers = new Hashtable<String, Server>();
+        residents = new Hashtable<String, Resident>();
         towns = new Hashtable<String, Town>();
         nations = new Hashtable<String, Nation>();
     }
@@ -36,12 +38,36 @@ public class Universe implements IHasServers, IHasResidents, IHasTowns, IHasNati
 
     @Override
     public void addServer(Server server) {
+        addServerNoSave(server);
+        Datasource.get().insert(server);
+
+        /*
+        Map<String, Object> args = new Hashtable<String, Object>();
+        args.put("uuid", server.getID());
+        Datasource.get().addTask(new DatasourceTask(DatasourceTask.Type.INSERT, "Servers", args));
+        */
+    }
+
+    /**
+     * Adds the server without saving it to the Datasource.
+     * Do NOT use this unless your loading from the Datasource!
+     *
+     * @param server
+     */
+    public void addServerNoSave(Server server) {
         servers.put(server.getID(), server);
     }
 
     @Override
     public void removeServer(Server server) {
         servers.remove(server.getID());
+        Datasource.get().delete(server);
+
+        /*
+        Map<String, Object> keys = new Hashtable<String, Object>();
+        keys.put("uuid", server.getID());
+        Datasource.get().addTask(new DatasourceTask(DatasourceTask.Type.DELETE, "Servers", null, keys));
+        */
     }
 
     @Override
@@ -67,12 +93,37 @@ public class Universe implements IHasServers, IHasResidents, IHasTowns, IHasNati
 
     @Override
     public void addResident(Resident res) {
+        addResidentNoSave(res);
+        Datasource.get().insert(res);
+
+        /*
+        Map<String, Object> args = new Hashtable<String, Object>();
+        args.put("uuid", res.getUUID().toString());
+        args.put("name", res.getPlayerName());
+        args.put("joined", res.getJoinDate());
+        args.put("lastOnline", res.getLastOnline());
+        args.put("extraBlocks", res.getExtraBlocks());
+        Datasource.get().addTask(new DatasourceTask(DatasourceTask.Type.INSERT, "Residents", args));
+        */
+    }
+
+    /**
+     * Adds the Resident without saving it to the Datasource.
+     * Do NOT use this unless your loading from the Datasource!
+     *
+     * @param res
+     */
+    public void addResidentNoSave(Resident res) {
         residents.put(res.getUUID().toString(), res);
     }
 
     @Override
     public void removeResident(Resident res) {
         residents.remove(res.getUUID().toString());
+
+        Map<String, Object> keys = new Hashtable<String, Object>();
+        keys.put("uuid", res.getUUID().toString());
+        Datasource.get().addTask(new DatasourceTask(DatasourceTask.Type.DELETE, "Residents", null, keys));
     }
 
     @Override
@@ -83,6 +134,14 @@ public class Universe implements IHasServers, IHasResidents, IHasTowns, IHasNati
     @Override
     public ImmutableList<Resident> getResidents() {
         return ImmutableList.copyOf(residents.values());
+    }
+
+    public Resident getResidentByUUID(String uuid) {
+        return residents.get(uuid);
+    }
+
+    public Resident getResidentByUUID(UUID uuid) {
+        return getResidentByUUID(uuid.toString());
     }
 
     public Resident getOrMakeResident(UUID uuid, String playerName, boolean save) {
@@ -127,12 +186,37 @@ public class Universe implements IHasServers, IHasResidents, IHasTowns, IHasNati
 
     @Override
     public void addTown(Town town) {
+        addTownNoSave(town);
+        Datasource.get().insert(town);
+
+        /*
+        Map<String, Object> args = new HashMap<String, Object>();
+        args.put("name", town.getName());
+        args.put("isAdminTown", (town instanceof AdminTown));
+        args.put("extraBlocks", town.getExtraBlocks());
+        args.put("maxPlots", town.getMaxPlots());
+        args.put("spawn", null); // TODO Save Spawn!
+        Datasource.get().addTask(new DatasourceTask(DatasourceTask.Type.INSERT, "Towns", args));
+        */
+    }
+
+    /**
+     * Adds the Town without saving it to the Datasource.
+     * Do NOT use this unless your loading from the Datasource!
+     *
+     * @param town
+     */
+    public void addTownNoSave(Town town) {
         towns.put(town.getName(), town);
     }
 
     @Override
     public void removeTown(Town town) {
         towns.remove(town.getName());
+
+        Map<String, Object> keys = new Hashtable<String, Object>();
+        keys.put("name", town.getName());
+        Datasource.get().addTask(new DatasourceTask(DatasourceTask.Type.DELETE, "Towns", null, keys));
     }
 
     @Override
@@ -145,16 +229,41 @@ public class Universe implements IHasServers, IHasResidents, IHasTowns, IHasNati
         return ImmutableList.copyOf(towns.values());
     }
 
+    public Town getTown(String name) {
+        return towns.get(name);
+    }
+
     /* ----- IHasNations ----- */
 
     @Override
     public void addNation(Nation nation) {
+        addNationNoSave(nation);
+        Datasource.get().insert(nation);
+
+        /*
+        Map<String, Object> args = new Hashtable<String, Object>();
+        args.put("name", nation.getName());
+        Datasource.get().addTask(new DatasourceTask(DatasourceTask.Type.INSERT, "Nations", args));
+        */
+    }
+
+    /**
+     * Adds the Nation without saving it to the Datasource.
+     * Do NOT use this unless your loading from the Datasource!
+     *
+     * @param nation
+     */
+    public void addNationNoSave(Nation nation) {
         nations.put(nation.getName(), nation);
     }
 
     @Override
     public void removeNation(Nation nation) {
         nations.remove(nation.getName());
+
+        Map<String, Object> keys = new Hashtable<String, Object>();
+        keys.put("name", nation.getName());
+        Datasource.get().addTask(new DatasourceTask(DatasourceTask.Type.DELETE, "Nations", null, keys));
     }
 
     @Override
@@ -167,16 +276,43 @@ public class Universe implements IHasServers, IHasResidents, IHasTowns, IHasNati
         return ImmutableList.copyOf(nations.values());
     }
 
+    public Nation getNation(String name) {
+        return null;
+    }
+
     /* ----- IHasWorlds ----- */
 
     @Override
     public void addWorld(World world) {
+        addWorldNoSave(world);
+        Datasource.get().insert(world);
+
+        /*
+        Map<String, Object> args = new Hashtable<String, Object>();
+        args.put("dim", world.getID());
+        args.put("server", Config.serverID);
+        Datasource.get().addTask(new DatasourceTask(DatasourceTask.Type.INSERT, "Worlds", args));
+        */
+    }
+
+    /**
+     * Adds the World without saving it to the Datasource.
+     * Do NOT use this unless your loading from the Datasource!
+     *
+     * @param world
+     */
+    public void addWorldNoSave(World world) {
         getServer().addWorld(world);
     }
 
     @Override
     public void removeWorld(World world) {
         getServer().removeWorld(world);
+
+        Map<String, Object> keys = new Hashtable<String, Object>();
+        keys.put("dim", world.getID());
+        keys.put("server", Config.serverID);
+        Datasource.get().addTask(new DatasourceTask(DatasourceTask.Type.DELETE, "Worlds", null, keys));
     }
 
     @Override
@@ -193,12 +329,40 @@ public class Universe implements IHasServers, IHasResidents, IHasTowns, IHasNati
 
     @Override
     public void addBlock(TownBlock block) {
+        addBlockNoSave(block);
+        Datasource.get().insert(block);
+
+        /*
+        Map<String, Object> args = new Hashtable<String, Object>();
+        args.put("server", Config.serverID);
+        args.put("town", block.getTown().getName());
+        args.put("dim", block.getDim());
+        args.put("x", block.getX());
+        args.put("z", block.getZ());
+        Datasource.get().addTask(new DatasourceTask(DatasourceTask.Type.INSERT, "TownBlocks", args));
+        */
+    }
+
+    /**
+     * Adds the TownBlock without saving it to the Datasource.
+     * Do NOT use this unless your loading from the Datasource!
+     *
+     * @param block
+     */
+    public void addBlockNoSave(TownBlock block) {
         getServer().addBlock(block);
     }
 
     @Override
     public void removeBlock(TownBlock block) {
         getServer().removeBlock(block);
+
+        Map<String, Object> keys = new Hashtable<String, Object>();
+        keys.put("server", Config.serverID);
+        keys.put("dim", block.getDim());
+        keys.put("x", block.getX());
+        keys.put("z", block.getZ());
+        Datasource.get().addTask(new DatasourceTask(DatasourceTask.Type.DELETE, "TownBlocks", null, keys));
     }
 
     @Override
@@ -240,12 +404,42 @@ public class Universe implements IHasServers, IHasResidents, IHasTowns, IHasNati
 
     @Override
     public void addPlot(Plot plot) {
+        addPlotNoSave(plot);
+        Datasource.get().insert(plot);
+
+        /*
+        Map<String, Object> args = new Hashtable<String, Object>();
+        args.put("name", plot.getName());
+        args.put("server", Config.serverID);
+        args.put("town", plot.getTown().getName());
+        args.put("dim", plot.getDim());
+        args.put("x1", plot.getStartX());
+        args.put("y1", plot.getStartY());
+        args.put("z1", plot.getStartZ());
+        args.put("x2", plot.getEndX());
+        args.put("y2", plot.getEndY());
+        args.put("z2", plot.getEndZ());
+        Datasource.get().addTask(new DatasourceTask(DatasourceTask.Type.INSERT, "TownPlots", args));
+        */
+    }
+
+    /**
+     * Adds the Plot without saving it to the Datasource.
+     * Do NOT use this unless your loading from the Datasource!
+     *
+     * @param plot
+     */
+    public void addPlotNoSave(Plot plot) {
         getServer().addPlot(plot);
     }
 
     @Override
     public void removePlot(Plot plot) {
         getServer().removePlot(plot);
+
+        Map<String, Object> keys = new Hashtable<String, Object>();
+        keys.put("id", plot.getDb_ID());
+        Datasource.get().addTask(new DatasourceTask(DatasourceTask.Type.DELETE, "TownPlots", null, keys));
     }
 
     @Override
@@ -263,10 +457,15 @@ public class Universe implements IHasServers, IHasResidents, IHasTowns, IHasNati
         return getServer().getPlotAtCoords(dim, x, y, z);
     }
 
+    public Plot getPlot(int i) {
+        return getServer().getPlot(i);
+    }
+
     /* ----- IHasFlags ----- */
 
     @Override
     public void addFlag(Flag flag) {
+        flags.add(flag);
     }
 
     @Override
@@ -276,27 +475,45 @@ public class Universe implements IHasServers, IHasResidents, IHasTowns, IHasNati
 
     @Override
     public ImmutableList<Flag> getFlags() {
-        return null;
+        return ImmutableList.copyOf(flags);
     }
 
     @Override
     public Flag getFlag(FlagType type) {
+        for (Flag flag : flags)
+            if (flag.flagType == type)
+                return flag;
         return null;
     }
 
     @Override
     public boolean removeFlag(FlagType type) {
+        for (Iterator<Flag> it = flags.iterator(); it.hasNext(); ) {
+            if (it.next().flagType == type) {
+                it.remove();
+                return true;
+            }
+        }
         return false;
     }
 
     @Override
     public Object getValue(FlagType type) {
-        return null;
+        for (Flag flag : flags) {
+            if (flag.flagType == type)
+                return flag.getValue();
+        }
+        return type.getDefaultValue();
     }
 
     @Override
     public Object getValueAtCoords(int dim, int x, int y, int z, FlagType type) {
-        return getServer().getValueAtCoords(dim, x, y, z, type);
+        Object o = getServer().getValueAtCoords(dim, x, y, z, type);
+        if (o != null) {
+            return o;
+        }
+
+        return getValue(type);
     }
 
     /* ----- Singleton ----- */

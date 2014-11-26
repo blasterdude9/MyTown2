@@ -12,16 +12,12 @@ public class SQLiteBackend extends SQLBackend {
 
     public SQLiteBackend() {
         super();
-    }
 
-    @Override
-    protected boolean init() {
         this.dsn = "jdbc:sqlite:" + dbPath;
 
         // Setup Properties
         dbProperties.put("foreign_keys", "ON");
 
-        return super.init();
     }
 
     @Override

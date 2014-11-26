@@ -2,6 +2,7 @@ package mytown.entities;
 
 import com.google.common.collect.ImmutableList;
 import mytown.MyTown;
+import mytown._datasource.Datasource;
 import mytown.api.interfaces.*;
 import mytown.config.Config;
 import mytown.core.utils.teleport.Teleport;
@@ -22,11 +23,19 @@ import java.util.*;
  *
  * @author Joe Goett
  */
+@Datasource.Table("Towns")
 public class Town implements IHasResidents, IHasRanks, IHasBlocks, IHasPlots, IHasFlags, IHasBlockWhitelists, Comparable<Town> {
-    private String name, oldName = null;
+    private String name;
+    private String oldName = null;
 
     public Town(String name) {
         setName(name);
+    }
+
+    public Town(String name, int extraBlocks, int maxPlots) {
+        this.name = name;
+        this.extraBlocks = extraBlocks;
+        this.maxPlots = maxPlots;
     }
 
     /**
@@ -34,6 +43,7 @@ public class Town implements IHasResidents, IHasRanks, IHasBlocks, IHasPlots, IH
      *
      * @return
      */
+    @Datasource.DBField(name = "name", where = true)
     public String getName() {
         return name;
     }
@@ -251,6 +261,7 @@ public class Town implements IHasResidents, IHasRanks, IHasBlocks, IHasPlots, IH
     }
 
     @Override
+    @Datasource.DBField(name = "extraBlocks")
     public int getExtraBlocks() {
         return extraBlocks;
     }
@@ -284,6 +295,7 @@ public class Town implements IHasResidents, IHasRanks, IHasBlocks, IHasPlots, IH
         this.maxPlots = maxPlots;
     }
 
+    @Datasource.DBField(name = "maxPlots")
     public int getMaxPlots() {
         return maxPlots;
     }
@@ -411,16 +423,19 @@ public class Town implements IHasResidents, IHasRanks, IHasBlocks, IHasPlots, IH
             if (flag.flagType == type)
                 return flag.getValue();
         }
-        return type.getDefaultValue();
+        return null; // Allow inheritance up the tree
     }
 
     @Override
     public Object getValueAtCoords(int dim, int x, int y, int z, FlagType flagType) {
         Plot plot = getPlotAtCoords(dim, x, y, z);
-        if (plot == null) {
-            return getValue(flagType);
+        if (plot != null) {
+            Object o = plot.getValue(flagType);
+            if (o != null) {
+                return o;
+            }
         }
-        return plot.getValue(flagType);
+        return getValue(flagType);
     }
 
     /* ---- IHasBlockWhitelists ---- */
@@ -531,6 +546,7 @@ public class Town implements IHasResidents, IHasRanks, IHasBlocks, IHasPlots, IH
      *
      * @return
      */
+    @Datasource.DBField(name = "spawn")
     public Teleport getSpawn() {
         return spawn;
     }
@@ -545,6 +561,11 @@ public class Town implements IHasResidents, IHasRanks, IHasBlocks, IHasPlots, IH
     }
 
     /* ----- Helpers ----- */
+
+    @Datasource.DBField(name = "isAdminTown")
+    public boolean isAdminTown() {
+        return this instanceof AdminTown;
+    }
 
     /**
      * Checks if the given point is in this Town

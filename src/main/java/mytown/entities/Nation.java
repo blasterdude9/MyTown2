@@ -1,6 +1,7 @@
 package mytown.entities;
 
 import com.google.common.collect.ImmutableList;
+import mytown._datasource.Datasource;
 import mytown.api.interfaces.IHasTowns;
 
 import java.util.Hashtable;
@@ -9,6 +10,7 @@ import java.util.Map;
 /**
  * @author Joe Goett
  */
+@Datasource.Table("Nations")
 public class Nation implements IHasTowns, Comparable<Nation> {
     private String name;
 
@@ -16,6 +18,7 @@ public class Nation implements IHasTowns, Comparable<Nation> {
         this.name = name;
     }
 
+    @Datasource.DBField(name = "name", where = true)
     public String getName() {
         return name;
     }
@@ -33,9 +36,17 @@ public class Nation implements IHasTowns, Comparable<Nation> {
 
     private Map<Town, Rank> towns = new Hashtable<Town, Rank>();
 
+    public void addTown(Town town, Rank rank) {
+        towns.put(town, rank);
+    }
+
     @Override
     public void addTown(Town town) {
-        towns.put(town, Rank.Town);
+        addTown(town, Rank.Town);
+    }
+
+    public void addTown(Town town, String rank) {
+        addTown(town, Rank.parse(rank));
     }
 
     @Override

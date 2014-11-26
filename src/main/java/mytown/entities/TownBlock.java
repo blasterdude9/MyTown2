@@ -1,7 +1,9 @@
 package mytown.entities;
 
 import com.google.common.collect.ImmutableList;
+import mytown._datasource.Datasource;
 import mytown.api.interfaces.IHasPlots;
+import mytown.config.Config;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -9,6 +11,7 @@ import java.util.List;
 /**
  * @author Joe Goett
  */
+@Datasource.Table("TownBlocks")
 public class TownBlock implements IHasPlots {
     public static String keyFormat = "%s;%s;%s";
 
@@ -23,15 +26,28 @@ public class TownBlock implements IHasPlots {
         this.town = town;
         updateKey();
     }
+    
+    @Datasource.DBField(name = "server", where = true)
+    public String getServer() {
+        return Config.serverID;
+    }
 
+    @Datasource.DBField(name = "town")
+    public String getTownName() {
+        return town.getName();
+    }
+
+    @Datasource.DBField(name = "dim", where = true)
     public int getDim() {
         return dim;
     }
 
+    @Datasource.DBField(name = "x", where = true)
     public int getX() {
         return x;
     }
 
+    @Datasource.DBField(name = "z", where = true)
     public int getZ() {
         return z;
     }

@@ -3,8 +3,10 @@ package mytown.entities;
 // TODO Implement PlotType
 
 import com.google.common.collect.ImmutableList;
+import mytown._datasource.Datasource;
 import mytown.api.interfaces.IHasFlags;
 import mytown.api.interfaces.IHasResidents;
+import mytown.config.Config;
 import mytown.entities.flag.Flag;
 import mytown.entities.flag.FlagType;
 
@@ -15,6 +17,7 @@ import java.util.List;
 /**
  * @author Joe Goett
  */
+@Datasource.Table("Plots")
 public class Plot implements IHasFlags, IHasResidents {
     private int db_ID;
     private final int dim, x1, y1, z1, x2, y2, z2;
@@ -54,36 +57,63 @@ public class Plot implements IHasFlags, IHasResidents {
         updateKey();
     }
 
+    @Datasource.DBField(name = "id", where = true)
+    public int getDb_ID() {
+        return this.db_ID;
+    }
+
+    @Datasource.DBField(name = "name")
+    public String getName() {
+        return name;
+    }
+
+    @Datasource.DBField(name = "server")
+    public String getServer() {
+        return Config.serverID;
+    }
+
+    @Datasource.DBField(name = "town")
+    public String getTownName() {
+        return town.getName();
+    }
+
+    @Datasource.DBField(name = "dim")
     public int getDim() {
         return dim;
     }
 
+    @Datasource.DBField(name = "x1")
     public int getStartX() {
         return x1;
     }
 
+    @Datasource.DBField(name = "y1")
     public int getStartY() {
         return y1;
     }
 
+    @Datasource.DBField(name = "z1")
     public int getStartZ() {
         return z1;
     }
 
-    public String getStartCoordString() {
-        return String.format("%s, %s, %s", x1, y1, z1);
-    }
-
+    @Datasource.DBField(name = "x2")
     public int getEndX() {
         return x2;
     }
 
+    @Datasource.DBField(name = "y2")
     public int getEndY() {
         return y2;
     }
 
+    @Datasource.DBField(name = "z2")
     public int getEndZ() {
         return z2;
+    }
+
+    public String getStartCoordString() {
+        return String.format("%s, %s, %s", x1, y1, z1);
     }
 
     public String getEndCoordString() {
@@ -118,20 +148,12 @@ public class Plot implements IHasFlags, IHasResidents {
         key = String.format("%s;%s;%s;%s;%s;%s;%s", dim, x1, y1, z1, x2, y2, z2);
     }
 
-    public String getName() {
-        return name;
-    }
-
     public void setName(String name) {
         this.name = name;
     }
 
     public void setDb_ID(int ID) {
         this.db_ID = ID;
-    }
-
-    public int getDb_ID() {
-        return this.db_ID;
     }
 
     /**
@@ -199,7 +221,7 @@ public class Plot implements IHasFlags, IHasResidents {
             if (flag.flagType == type)
                 return flag.getValue();
         }
-        return type.getDefaultValue();
+        return null; // Allow inheritance up the tree
     }
 
     @Override

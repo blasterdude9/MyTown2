@@ -1,6 +1,5 @@
 package mytown._datasource;
 
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -10,9 +9,9 @@ public final class DatasourceTask {
     public final Type type;
     public final String tblName;
     public final Map<String, Object> args;
-    public final List<String> keys;
+    public final Map<String, Object> keys;
 
-    public DatasourceTask(final Type type, final String tblName, final Map<String, Object> args, final List<String> keys) {
+    public DatasourceTask(final Type type, final String tblName, final Map<String, Object> args, final Map<String, Object> keys) {
         this.type = type;
         this.tblName = tblName;
         this.args = args;

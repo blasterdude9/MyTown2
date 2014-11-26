@@ -2,12 +2,14 @@ package mytown.entities;
 
 import com.google.common.base.Joiner;
 import mytown.MyTown;
+import mytown._datasource.Datasource;
 
 import java.util.*;
 
 /**
  * @author Joe Goett
  */
+@Datasource.Table("Ranks")
 public class Rank {
     private String key, name;
     private List<String> permissions;
@@ -25,8 +27,19 @@ public class Rank {
         updateKey();
     }
 
+    @Datasource.DBField(name = "name", where = true)
     public String getName() {
         return name;
+    }
+
+    @Datasource.DBField(name = "town", where = true)
+    public String getTownName() {
+        return town.getName();
+    }
+
+    @Datasource.DBField(name = "isDefault")
+    public boolean isDefault() {
+        return town.getDefaultRank() == this;
     }
 
     /**

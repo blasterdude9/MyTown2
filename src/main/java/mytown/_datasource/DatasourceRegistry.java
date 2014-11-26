@@ -18,6 +18,8 @@ import java.util.Map;
 public final class DatasourceRegistry {
     private static Logger logger = LogManager.getLogger();
     private static Map<String, Class<? extends DatasourceBackend>> backends = new Hashtable<String, Class<? extends DatasourceBackend>>();
+    // This is to ONLY be used for initialization and loading!
+    private static DatasourceBackend synchronizedBackend;
 
     // Register Built-in backends
     static {
@@ -61,7 +63,23 @@ public final class DatasourceRegistry {
 
     private DatasourceRegistry() {}
 
+    private static DatasourceBackend getSynchronizedBackend() {
+        if (synchronizedBackend == null) {
+            synchronizedBackend = createBackend();
+        }
+        return synchronizedBackend;
+    }
+
     public static boolean initBackend() {
-        return createBackend().init(); // TODO Insert Server UUID and Worlds if they are not already in the datasource
+        return getSynchronizedBackend().init();
+    }
+
+    public static void load() {
+        getSynchronizedBackend().load();
+    }
+
+    public static void releaseSynchronizedBackend() {
+        synchronizedBackend.close();
+        synchronizedBackend = null;
     }
 }

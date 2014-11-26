@@ -1,6 +1,7 @@
 package mytown.entities;
 
 import com.google.common.collect.ImmutableList;
+import mytown._datasource.Datasource;
 import mytown.api.interfaces.IHasBlocks;
 import mytown.api.interfaces.IHasFlags;
 import mytown.api.interfaces.IHasPlots;
@@ -8,23 +9,23 @@ import mytown.api.interfaces.IHasWorlds;
 import mytown.entities.flag.Flag;
 import mytown.entities.flag.FlagType;
 
-import java.util.ArrayList;
-import java.util.Hashtable;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * @author Joe Goett
  */
+@Datasource.Table("Servers")
 public class Server implements IHasWorlds, IHasBlocks, IHasPlots, IHasFlags {
     private String id;
     private Map<Integer, World> worlds;
+    private List<Flag> flags = new ArrayList<Flag>();
 
     public Server(String id) {
         worlds = new Hashtable<Integer, World>();
         this.id = id;
     }
 
+    @Datasource.DBField(name = "uuid", where = true)
     public String getID() {
         return id;
     }
@@ -49,6 +50,10 @@ public class Server implements IHasWorlds, IHasBlocks, IHasPlots, IHasFlags {
     @Override
     public ImmutableList<World> getWorlds() {
         return ImmutableList.copyOf(worlds.values());
+    }
+
+    public World getWorld(int dim) {
+        return worlds.get(dim);
     }
 
     /* ----- IHasTownBlocks ----- */
@@ -130,14 +135,28 @@ public class Server implements IHasWorlds, IHasBlocks, IHasPlots, IHasFlags {
 
     @Override
     public Plot getPlotAtCoords(int dim, int x, int y, int z) {
-        return worlds.get(dim).getPlotAtCoords(dim, x, y, z);
+        World w = worlds.get(dim);
+        if (w == null) {
+            return null;
+        }
+        return w.getPlotAtCoords(dim, x, y, z);
+    }
+
+    public Plot getPlot(int id) {
+        for (World w : getWorlds()) {
+            Plot p = w.getPlot(id);
+            if (p == null) continue;
+            return p;
+        }
+
+        return null;
     }
 
     /* ----- IHasFlags ----- */
-    // TODO Per-Server Flags
 
     @Override
     public void addFlag(Flag flag) {
+        flags.add(flag);
     }
 
     @Override
@@ -147,31 +166,47 @@ public class Server implements IHasWorlds, IHasBlocks, IHasPlots, IHasFlags {
 
     @Override
     public ImmutableList<Flag> getFlags() {
-        return null;
+        return ImmutableList.copyOf(flags);
     }
 
     @Override
     public Flag getFlag(FlagType type) {
+        for (Flag flag : flags)
+            if (flag.flagType == type)
+                return flag;
         return null;
     }
 
     @Override
     public boolean removeFlag(FlagType type) {
+        for (Iterator<Flag> it = flags.iterator(); it.hasNext(); ) {
+            if (it.next().flagType == type) {
+                it.remove();
+                return true;
+            }
+        }
         return false;
     }
 
     @Override
     public Object getValue(FlagType type) {
-        return null;
+        for (Flag flag : flags) {
+            if (flag.flagType == type)
+                return flag.getValue();
+        }
+        return null; // Allow inheritance up the tree
     }
 
     @Override
     public Object getValueAtCoords(int dim, int x, int y, int z, FlagType type) {
         World w = worlds.get(dim);
         if (w != null) {
-            return w.getValueAtCoords(dim, x, y, z, type);
+            Object o =  w.getValueAtCoords(dim, x, y, z, type);
+            if (o != null) {
+                return o;
+            }
         }
 
-        return type.getDefaultValue();
+        return getValue(type);
     }
 }

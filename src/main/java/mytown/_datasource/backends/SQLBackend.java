@@ -71,7 +71,7 @@ public abstract class SQLBackend extends DatasourceBackend {
             loadUniverse();
             loadServer();
             loadWorlds();
-            // TODO Load Teleports
+            loadTeleports(); // TODO Load Teleports
             loadResidents();
             loadTowns();
             loadNations();
@@ -293,6 +293,10 @@ public abstract class SQLBackend extends DatasourceBackend {
             Flag flag = new Flag(type, gson.fromJson(rs.getString("serializedValue"), type.getType()));
             Universe.get().getServer().getWorld(dim).addFlag(flag);
         }
+    }
+
+    protected void loadTeleports() throws SQLException {
+        // TODO
     }
 
     protected void loadResidents() throws SQLException {

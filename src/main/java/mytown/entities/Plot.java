@@ -17,7 +17,7 @@ public class Plot implements IFlagsContainer, IResidentsContainer {
     private String key, name;
 
     private List<Flag> flags = new ArrayList<Flag>();
-    private List<Resident> whitelist = new ArrayList<Resident>();
+    private List<Resident> members = new ArrayList<Resident>();
     private List<Resident> owners = new ArrayList<Resident>();
 
     public Plot(String name, Town town, int dim, int x1, int y1, int z1, int x2, int y2, int z2) {

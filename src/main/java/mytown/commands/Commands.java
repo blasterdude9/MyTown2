@@ -1,9 +1,9 @@
 package mytown.commands;
 
-import com.google.common.collect.ImmutableList;
-import mytown.api.interfaces.FlagsContainer;
-import mytown.core.Localization;
-import mytown.core.command.CommandManager;
+import myessentials.Localization;
+import mypermissions.api.command.CommandCompletion;
+import mytown.MyTown;
+import mytown.api.container.FlagsContainer;
 import mytown.datasource.MyTownDatasource;
 import mytown.datasource.MyTownUniverse;
 import mytown.entities.*;
@@ -11,7 +11,6 @@ import mytown.entities.flag.Flag;
 import mytown.entities.flag.FlagType;
 import mytown.proxies.DatasourceProxy;
 import mytown.proxies.EconomyProxy;
-import mytown.proxies.LocalizationProxy;
 import mytown.util.MyTownUtils;
 import mytown.util.exceptions.MyTownCommandException;
 import net.minecraft.command.ICommandSender;
@@ -36,148 +35,74 @@ public abstract class Commands {
         return MyTownUniverse.instance;
     }
     public static Localization getLocal() {
-        return LocalizationProxy.getLocalization();
-    }
-
-    /**
-     * Calls the method to which the set of arguments corresponds to.
-     */
-    public static boolean callSubFunctions(ICommandSender sender, List<String> args, String callersPermNode) {
-        List<String> subCommands = CommandManager.getSubCommandsList(callersPermNode);
-        if (!args.isEmpty()) {
-            for (String s : subCommands) {
-                String name = CommandManager.commandNames.get(s);
-                // Checking if name corresponds and if parent's
-                if (name.equals(args.get(0)) && CommandManager.getParentPermNode(s).equals(callersPermNode)) {
-                    CommandManager.commandCall(s, sender, args.subList(1, args.size()));
-                    return true;
-                }
-            }
-        }
-
-        sendHelpMessage(sender, callersPermNode, null);
-        return false;
-    }
-
-    /**
-     * Sends the help message for the permission node with the arguments.
-     */
-    public static void sendHelpMessage(ICommandSender sender, String permBase, List<String> args) {
-        String node;
-        if (args == null || args.isEmpty()) {
-            //If no arguments are provided then we check for the base permission
-            node = permBase;
-        } else {
-            node = CommandManager.getPermissionNodeFromArgs(args, permBase);
-        }
-
-
-        String command = "/" + CommandManager.commandNames.get(permBase);
-
-        if(args != null) {
-            String prevNode = permBase;
-            for (String s : args) {
-                String t = CommandManager.getSubCommandNode(s, prevNode);
-                if (t != null) {
-                    command += " " + s;
-                    prevNode = t;
-                } else
-                    break;
-            }
-        }
-
-        sendMessageBackToSender(sender, command);
-        List<String> scList = CommandManager.getSubCommandsList(node);
-        if (scList == null || scList.isEmpty()) {
-            sendMessageBackToSender(sender, "   " + getLocal().getLocalization(node + ".help"));
-        } else {
-            List<String> nameList = new ArrayList<String>();
-            for(String s : scList) {
-                nameList.add(CommandManager.commandNames.get(s));
-            }
-            Collections.sort(nameList);
-            for (String s : nameList) {
-                sendMessageBackToSender(sender, "   " + s + ": " + getLocal().getLocalization(CommandManager.getSubCommandNode(s, node) + ".help"));
-            }
-        }
-    }
-
-    /**
-     * Custom check for commands which require certain rank permissions.
-     */
-    public static boolean firstPermissionBreach(String permission, ICommandSender sender) {
-        // Since everybody should have permission to /t and outsider commands
-        if ("mytown.cmd".equals(permission))
-            return true;
-
-        if (!(sender instanceof EntityPlayer))
-            return true;
-
-        Resident res = getDatasource().getOrMakeResident(sender);
-        // Get its rank with the permissions
-        Rank rank = res.getTownRank(res.getSelectedTown());
-
-        if (rank == null) {
-            return true;
-        }
-        return rank.hasPermissionOrSuperPermission(permission);
+        return MyTown.instance.LOCAL;
     }
 
     /**
      * Populates the tab completion map.
      */
     public static void populateCompletionMap() {
+
         List<String> populator = new ArrayList<String>();
-        populator.addAll(getUniverse().getTownsMap().keySet());
-        populator.add("@a");
-        CommandManager.completionMap.put("townCompletionAndAll", populator);
+        for(Town town : getUniverse().towns) {
+            populator.add(town.getName());
+        }
+
+        CommandCompletion.addCompletions("townCompletionAndAll", populator);
+        CommandCompletion.addCompletion("townCompletionAndAll", "@a");
+
+        CommandCompletion.addCompletions("townCompletion", populator);
 
         populator = new ArrayList<String>();
-        populator.addAll(getUniverse().getTownsMap().keySet());
-        CommandManager.completionMap.put("townCompletion", populator);
-
-        populator = new ArrayList<String>();
-        for (Resident res : getUniverse().getResidentsMap().values()) {
+        for (Resident res : getUniverse().residents) {
             populator.add(res.getPlayerName());
         }
-        CommandManager.completionMap.put("residentCompletion", populator);
+        CommandCompletion.addCompletions("residentCompletion", populator);
 
         populator = new ArrayList<String>();
         for (FlagType flag : FlagType.values()) {
             populator.add(flag.toString().toLowerCase());
         }
-        CommandManager.completionMap.put("flagCompletion", populator);
+        CommandCompletion.addCompletions("flagCompletion", populator);
 
         populator = new ArrayList<String>();
         for (FlagType flag : FlagType.values()) {
             if (flag.isWhitelistable())
                 populator.add(flag.toString().toLowerCase());
         }
-        CommandManager.completionMap.put("flagCompletionWhitelist", populator);
+        CommandCompletion.addCompletions("flagCompletionWhitelist", populator);
 
-        populator.clear();
-        populator.addAll(Rank.defaultRanks.keySet());
-        CommandManager.completionMap.put("rankCompletion", populator);
+        populator = new ArrayList<String>();
+        for(Plot plot : MyTownUniverse.instance.plots) {
+            populator.add(plot.toString());
+        }
+        CommandCompletion.addCompletions("plotCompletion", populator);
+
+        populator = new ArrayList<String>();
+        for(Rank rank : Rank.defaultRanks) {
+            populator.add(rank.getName());
+        }
+        CommandCompletion.addCompletions("rankCompletion", populator);
     }
 
     /* ---- HELPERS ---- */
 
     public static Town getTownFromResident(Resident res) {
-        Town town = res.getSelectedTown();
+        Town town = res.townsContainer.getMainTown();
         if (town == null)
             throw new MyTownCommandException("mytown.cmd.err.partOfTown");
         return town;
     }
 
     public static Town getTownFromName(String name) {
-        Town town = getUniverse().getTownsMap().get(name);
+        Town town = getUniverse().towns.get(name);
         if (town == null)
             throw new MyTownCommandException("mytown.cmd.err.town.notexist", name);
         return town;
     }
 
     public static Resident getResidentFromName(String playerName) {
-        Resident res = getDatasource().getOrMakeResident(playerName);
+        Resident res = MyTownUniverse.instance.getOrMakeResident(playerName);
         if (res == null)
             throw new MyTownCommandException("mytown.cmd.err.resident.notexist", playerName);
         return res;
@@ -185,30 +110,29 @@ public abstract class Commands {
 
     public static Plot getPlotAtResident(Resident res) {
         Town town = getTownFromResident(res);
-        Plot plot = town.getPlotAtResident(res);
+        Plot plot = town.plotsContainer.get(res);
         if (plot == null)
             throw new MyTownCommandException("mytown.cmd.err.plot.notInPlot");
         return plot;
     }
 
-    public static ImmutableList<Town> getInvitesFromResident(Resident res) {
-        ImmutableList<Town> list = res.getInvites();
-        if (list == null || list.isEmpty())
+    public static List<Town> getInvitesFromResident(Resident res) {
+        if (res.townInvitesContainer.isEmpty())
             throw new MyTownCommandException("mytown.cmd.err.invite.noinvitations");
-        return list;
+        return res.townInvitesContainer;
     }
 
-    public static Flag getFlagFromType(FlagsContainer hasFlags, FlagType flagType) {
-        Flag flag = hasFlags.getFlag(flagType);
+    public static Flag getFlagFromType(FlagsContainer flagsContainer, FlagType flagType) {
+        Flag flag = flagsContainer.get(flagType);
         if (flag == null)
             throw new MyTownCommandException("mytown.cmd.err.flagNotExists", flagType.toString());
         return flag;
     }
 
-    public static Flag getFlagFromName(FlagsContainer hasFlags, String name) {
+    public static Flag getFlagFromName(FlagsContainer flagsContainer, String name) {
         Flag flag;
         try {
-            flag = hasFlags.getFlag(FlagType.valueOf(name.toUpperCase()));
+            flag = flagsContainer.get(FlagType.valueOf(name.toUpperCase()));
         } catch (IllegalArgumentException ex) {
             throw new MyTownCommandException("mytown.cmd.err.flagNotExists", ex, name);
         }
@@ -218,14 +142,14 @@ public abstract class Commands {
     }
 
     public static TownBlock getBlockAtResident(Resident res) {
-        TownBlock block = getDatasource().getBlock(res.getPlayer().dimension, res.getPlayer().chunkCoordX, res.getPlayer().chunkCoordZ);
+        TownBlock block = getUniverse().blocks.get(res.getPlayer().dimension, ((int) res.getPlayer().posX) >> 4, ((int) res.getPlayer().posZ >> 4));
         if (block == null)
-            throw new MyTownCommandException("mytown.cmd.err.claim.notexist", res.getSelectedTown());
+            throw new MyTownCommandException("mytown.cmd.err.claim.notexist", res.townsContainer.getMainTown().getName());
         return block;
     }
 
     public static Rank getRankFromTown(Town town, String rankName) {
-        Rank rank = town.getRank(rankName);
+        Rank rank = town.ranksContainer.get(rankName);
         if (rank == null) {
             throw new MyTownCommandException("mytown.cmd.err.rank.notexist", rankName, town.getName());
         }
@@ -233,34 +157,50 @@ public abstract class Commands {
     }
 
     public static Rank getRankFromResident(Resident res) {
-        Rank rank = res.getTownRank();
-        if (rank == null) {
+        Town town = res.townsContainer.getMainTown();
+        if (town == null) {
             throw new MyTownCommandException("mytown.cmd.err.partOfTown");
         }
-        return rank;
+        return town.residentsMap.get(res);
     }
 
     public static Plot getPlotAtPosition(int dim, int x, int y, int z) {
         Town town = MyTownUtils.getTownAtPosition(dim, x >> 4, z >> 4);
         if (town == null)
             throw new MyTownCommandException("mytown.cmd.err.blockNotInPlot");
-        Plot plot = town.getPlotAtCoords(dim, x, y, z);
+        Plot plot = town.plotsContainer.get(dim, x, y, z);
         if (plot == null)
             throw new MyTownCommandException("mytown.cmd.err.blockNotInPlot");
         return plot;
     }
 
+    public static Plot getPlotFromName(Town town, String name) {
+        Plot plot = town.plotsContainer.get(name);
+        if(plot == null)  {
+            throw new MyTownCommandException("mytown.cmd.err.plot.notExists", name);
+        }
+        return plot;
+    }
+
     public static FlagType getFlagTypeFromName(String name) {
         try {
-            return FlagType.valueOf(name);
+            return FlagType.valueOf(name.toUpperCase());
         } catch (IllegalArgumentException e) {
             throw new MyTownCommandException("mytown.cmd.err.flagNotExists", e, name);
         }
     }
 
+    public static Rank.Type getRankTypeFromString(String name) {
+        try {
+            return Rank.Type.valueOf(name.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new MyTownCommandException("mytown.cmd.err.ranks.typeNotExists", e, name);
+        }
+    }
+
     public static void sendMessageBackToSender(ICommandSender sender, String message) {
         if (sender instanceof EntityPlayer) {
-            Resident res = getDatasource().getOrMakeResident(sender);
+            Resident res = MyTownUniverse.instance.getOrMakeResident(sender);
             res.sendMessage(message);
         } else {
             sender.addChatMessage(new ChatComponentText(message));
@@ -270,18 +210,39 @@ public abstract class Commands {
     public static void makePayment(EntityPlayer player, int amount) {
         if(amount == 0)
             return;
-        Resident res = DatasourceProxy.getDatasource().getOrMakeResident(player);
+        Resident res = MyTownUniverse.instance.getOrMakeResident(player);
         if(!EconomyProxy.getEconomy().takeMoneyFromPlayer(player, amount)){
-            throw new MyTownCommandException("mytown.cmd.err.payment", EconomyProxy.getCurrency(amount));
+            throw new MyTownCommandException("mytown.cmd.err.resident.payment", EconomyProxy.getCurrency(amount));
         }
-        res.sendMessage(getLocal().getLocalization("mytown.notification.payment", EconomyProxy.getCurrency(amount)));
+        res.sendMessage(getLocal().getLocalization("mytown.notification.resident.payment", EconomyProxy.getCurrency(amount)));
     }
 
     public static void makeRefund(EntityPlayer player, int amount) {
         if(amount == 0)
             return;
-        Resident res = DatasourceProxy.getDatasource().getOrMakeResident(player);
+        Resident res = MyTownUniverse.instance.getOrMakeResident(player);
         EconomyProxy.getEconomy().giveMoneyToPlayer(player, amount);
-        res.sendMessage(getLocal().getLocalization("mytown.notification.refund", EconomyProxy.getCurrency(amount)));
+        res.sendMessage(getLocal().getLocalization("mytown.notification.resident.refund", EconomyProxy.getCurrency(amount)));
+    }
+
+    public static void makeBankPayment(ICommandSender sender, Town town, int amount) {
+        if(amount == 0)
+            return;
+
+        if(town.bank.getAmount() < amount)
+            throw new MyTownCommandException("mytown.cmd.err.town.payment", EconomyProxy.getCurrency(amount));
+
+        town.bank.addAmount(-amount);
+        getDatasource().saveTownBank(town.bank);
+        sendMessageBackToSender(sender, MyTown.instance.LOCAL.getLocalization("mytown.notification.town.payment", EconomyProxy.getCurrency(amount)));
+    }
+
+    public static void makeBankRefund(ICommandSender sender, Town town, int amount) {
+        if(amount == 0)
+            return;
+
+        town.bank.addAmount(amount);
+        getDatasource().saveTownBank(town.bank);
+        sendMessageBackToSender(sender, MyTown.instance.LOCAL.getLocalization("mytown.notification.town.refund", EconomyProxy.getCurrency(amount)));
     }
 }

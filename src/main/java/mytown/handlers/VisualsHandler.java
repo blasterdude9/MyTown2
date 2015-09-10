@@ -4,9 +4,9 @@ import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.gameevent.TickEvent;
 import cpw.mods.fml.relauncher.Side;
 import mytown.MyTown;
-import mytown.core.utils.WorldUtils;
+import myessentials.utils.WorldUtils;
+import mytown.api.container.TownBlocksContainer;
 import mytown.entities.Plot;
-import mytown.entities.Town;
 import mytown.entities.TownBlock;
 import net.minecraft.block.Block;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -21,7 +21,7 @@ public class VisualsHandler {
 
     public static final VisualsHandler instance = new VisualsHandler();
 
-    private final Map<PlayerObjectPair, List<BlockCoords>> markedBlocks = new HashMap<PlayerObjectPair, List<BlockCoords>>();
+    private final List<VisualObject> markedBlocks = new ArrayList<VisualObject>();
 
     @SubscribeEvent
     public void tick(TickEvent.ServerTickEvent ev) {
@@ -29,92 +29,85 @@ public class VisualsHandler {
             return;
 
         if (!markedBlocks.isEmpty()) {
-            for(Map.Entry<PlayerObjectPair, List<BlockCoords>> set : markedBlocks.entrySet()) {
-                Iterator<BlockCoords> iterator = set.getValue().iterator();
-                while (iterator.hasNext()) {
-                    BlockCoords coord = iterator.next();
+            for(Iterator<VisualObject> visualObjectIterator = markedBlocks.iterator(); visualObjectIterator.hasNext(); ) {
+                VisualObject visualObject = visualObjectIterator.next();
+
+                for (Iterator<BlockCoords> blockCoordsIterator = visualObject.blockCoords.iterator(); blockCoordsIterator.hasNext(); ) {
+                    BlockCoords coord = blockCoordsIterator.next();
                     if (!coord.packetSent) {
                         S23PacketBlockChange packet = new S23PacketBlockChange(coord.x, coord.y, coord.z, MinecraftServer.getServer().worldServerForDimension(coord.dim));
                         packet.field_148883_d = coord.block;
-                        set.getKey().getPlayer().playerNetServerHandler.sendPacket(packet);
+                        visualObject.player.playerNetServerHandler.sendPacket(packet);
                         coord.packetSent = true;
                     }
                     if (coord.deleted) {
                         S23PacketBlockChange packet = new S23PacketBlockChange(coord.x, coord.y, coord.z, MinecraftServer.getServer().worldServerForDimension(coord.dim));
                         packet.field_148883_d = MinecraftServer.getServer().worldServerForDimension(coord.dim).getBlock(coord.x, coord.y, coord.z);
                         packet.field_148884_e = MinecraftServer.getServer().worldServerForDimension(coord.dim).getBlockMetadata(coord.x, coord.y, coord.z);
-                        set.getKey().getPlayer().playerNetServerHandler.sendPacket(packet);
-                        iterator.remove();
+                        visualObject.player.playerNetServerHandler.sendPacket(packet);
+                        blockCoordsIterator.remove();
                     }
                 }
+                if (visualObject.blockCoords.isEmpty())
+                    visualObjectIterator.remove();
             }
         }
     }
 
     public void markBlock(int x, int y, int z, int dim, Block block, EntityPlayerMP caller, Object key) {
-        PlayerObjectPair pair = new PlayerObjectPair(caller, key);
-        if(markedBlocks.get(pair) == null) {
-            markedBlocks.put(pair, new ArrayList<BlockCoords>());
-        }
-        markedBlocks.get(pair).add(new BlockCoords(x, y, z, dim, block));
-    }
-
-    /**
-     * Unmarks all the blocks that are linked to the player and object key.
-     */
-    public void unmarkBlocks(Object key, EntityPlayerMP caller) {
-        PlayerObjectPair pair = new PlayerObjectPair(caller, key);
-        if(markedBlocks.get(pair) == null)
-            return;
-        for(BlockCoords coord : markedBlocks.get(pair)) {
-            coord.deleted = true;
-        }
-    }
-
-    public void unmarkTowns(EntityPlayerMP caller) {
-        for(Map.Entry<PlayerObjectPair, List<BlockCoords>> entry : markedBlocks.entrySet()) {
-            if(entry.getKey().getPlayer() == caller && entry.getKey().getObject() instanceof Town) {
-                for(BlockCoords coord : entry.getValue()) {
-                    coord.deleted = true;
-                }
+        BlockCoords singleCoord = new BlockCoords(x, y, z, dim, block);
+        for(VisualObject visualObject : markedBlocks) {
+            if(visualObject.player == caller && visualObject.object == key) {
+                visualObject.blockCoords.add(singleCoord);
+                return;
             }
         }
+
+        List<BlockCoords> blockCoords = new ArrayList<BlockCoords>();
+        blockCoords.add(singleCoord);
+        markedBlocks.add(new VisualObject(caller, key, blockCoords));
     }
 
-    public void unmarkPlots(EntityPlayerMP caller) {
-        for(Map.Entry<PlayerObjectPair, List<BlockCoords>> entry : markedBlocks.entrySet()) {
-            if(entry.getKey().getPlayer() == caller && entry.getKey().getObject() instanceof Plot) {
-                for(BlockCoords coord : entry.getValue()) {
-                    coord.deleted = true;
-                }
+    public void markBlocks(EntityPlayerMP caller, Object key, List<BlockCoords> blockList) {
+        for(VisualObject visualObject : markedBlocks) {
+            if(visualObject.player == caller && visualObject.object == key) {
+                visualObject.blockCoords.addAll(blockList);
+                return;
             }
         }
+
+        markedBlocks.add(new VisualObject(caller, key, blockList));
     }
 
-    public void markPlotCorners(int selectionX1, int selectionY1, int selectionZ1, int selectionX2, int selectionY2, int selectionZ2, int dim, EntityPlayerMP caller) {
+    public void markCorners(int selectionX1, int selectionY1, int selectionZ1, int selectionX2, int selectionY2, int selectionZ2, int dim, EntityPlayerMP caller) {
 
-        markBlock(selectionX1, selectionY1, selectionZ1, dim, Blocks.redstone_block, caller, null);
-        markBlock(selectionX2, selectionY2, selectionZ2, dim, Blocks.redstone_block, caller, null);
+        List<BlockCoords> blockList = new ArrayList<BlockCoords>();
+
+        blockList.add(new BlockCoords(selectionX1, selectionY1, selectionZ1, dim, Blocks.redstone_block));
+        blockList.add(new BlockCoords(selectionX2, selectionY2, selectionZ2, dim, Blocks.redstone_block));
 
         // On the X
-        markBlock(selectionX1 + (selectionX1 > selectionX2 ? -1 : 1), selectionY1, selectionZ1, dim, Blocks.redstone_block, caller, null);
-        markBlock(selectionX2 + (selectionX1 > selectionX2 ? 1 : -1), selectionY2, selectionZ2, dim, Blocks.redstone_block, caller, null);
-        markBlock(selectionX1 + (selectionX1 > selectionX2 ? -2 : 2), selectionY1, selectionZ1, dim, Blocks.redstone_block, caller, null);
-        markBlock(selectionX2 + (selectionX1 > selectionX2 ? 2 : -2), selectionY2, selectionZ2, dim, Blocks.redstone_block, caller, null);
+        blockList.add(new BlockCoords(selectionX1 + (selectionX1 > selectionX2 ? -1 : 1), selectionY1, selectionZ1, dim, Blocks.redstone_block));
+        blockList.add(new BlockCoords(selectionX2 + (selectionX1 > selectionX2 ? 1 : -1), selectionY2, selectionZ2, dim, Blocks.redstone_block));
+        blockList.add(new BlockCoords(selectionX1 + (selectionX1 > selectionX2 ? -2 : 2), selectionY1, selectionZ1, dim, Blocks.redstone_block));
+        blockList.add(new BlockCoords(selectionX2 + (selectionX1 > selectionX2 ? 2 : -2), selectionY2, selectionZ2, dim, Blocks.redstone_block));
 
         // On the Z
-        markBlock(selectionX2, selectionY2, selectionZ2 + (selectionZ1 > selectionZ2 ? 1 : -1), dim, Blocks.redstone_block, caller, null);
-        markBlock(selectionX1, selectionY1, selectionZ1 + (selectionZ1 > selectionZ2 ? -1 : 1), dim, Blocks.redstone_block, caller, null);
-        markBlock(selectionX2, selectionY2, selectionZ2 + (selectionZ1 > selectionZ2 ? 2 : -2), dim, Blocks.redstone_block, caller, null);
-        markBlock(selectionX1, selectionY1, selectionZ1 + (selectionZ1 > selectionZ2 ? -2 : 2), dim, Blocks.redstone_block, caller, null);
+        blockList.add(new BlockCoords(selectionX2, selectionY2, selectionZ2 + (selectionZ1 > selectionZ2 ? 1 : -1), dim, Blocks.redstone_block));
+        blockList.add(new BlockCoords(selectionX1, selectionY1, selectionZ1 + (selectionZ1 > selectionZ2 ? -1 : 1), dim, Blocks.redstone_block));
+        blockList.add(new BlockCoords(selectionX2, selectionY2, selectionZ2 + (selectionZ1 > selectionZ2 ? 2 : -2), dim, Blocks.redstone_block));
+        blockList.add(new BlockCoords(selectionX1, selectionY1, selectionZ1 + (selectionZ1 > selectionZ2 ? -2 : 2), dim, Blocks.redstone_block));
 
         if (selectionY1 != selectionY2) {
             // On the Y
-            markBlock(selectionX1, selectionY1 + (selectionY1 > selectionY2 ? -1 : 1), selectionZ1, dim, Blocks.redstone_block, caller, null);
-            markBlock(selectionX2, selectionY2 + (selectionY1 > selectionY2 ? 1 : -1), selectionZ2, dim, Blocks.redstone_block, caller, null);
-            markBlock(selectionX1, selectionY1 + (selectionY1 > selectionY2 ? -2 : 2), selectionZ1, dim, Blocks.redstone_block, caller, null);
-            markBlock(selectionX2, selectionY2 + (selectionY1 > selectionY2 ? 2 : -2), selectionZ2, dim, Blocks.redstone_block, caller, null);
+            blockList.add(new BlockCoords(selectionX1, selectionY1 + (selectionY1 > selectionY2 ? -1 : 1), selectionZ1, dim, Blocks.redstone_block));
+            blockList.add(new BlockCoords(selectionX2, selectionY2 + (selectionY1 > selectionY2 ? 1 : -1), selectionZ2, dim, Blocks.redstone_block));
+            blockList.add(new BlockCoords(selectionX1, selectionY1 + (selectionY1 > selectionY2 ? -2 : 2), selectionZ1, dim, Blocks.redstone_block));
+            blockList.add(new BlockCoords(selectionX2, selectionY2 + (selectionY1 > selectionY2 ? 2 : -2), selectionZ2, dim, Blocks.redstone_block));
         }
+
+        // Marking it to itself since null would not be possible
+        markBlocks(caller, caller, blockList);
     }
 
     public void markPlotBorders(Plot plot, EntityPlayerMP caller) {
@@ -142,11 +135,11 @@ public class VisualsHandler {
             blockList.add(new BlockCoords(x1, y2, i, dim, Blocks.redstone_block));
             blockList.add(new BlockCoords(x2, y2, i, dim, Blocks.redstone_block));
         }
-        addMarkedBlocks(key, caller, blockList);
+        addMarkedBlocks(caller, key, blockList);
     }
 
 
-    public void markTownBorders(Town town, EntityPlayerMP caller) {
+    public void markTownBorders(TownBlocksContainer townBlocksContainer, EntityPlayerMP caller) {
         int[] dx = {-1, -1, 0, 1, 1, 1, 0, -1};
         int[] dz = {0, 1, 1, 1, 0, -1, -1, -1};
 
@@ -154,15 +147,15 @@ public class VisualsHandler {
 
         List<BlockCoords> blockList = new ArrayList<BlockCoords>();
 
-        for (TownBlock block : town.getBlocks()) {
+        for (TownBlock block : townBlocksContainer) {
 
             // Showing lines in borders
-            for(int i = 0; i < 8; i+=2) {
-                if(town.getBlockAtCoords(block.getDim(), block.getX() + dx[i], block.getZ() + dz[i]) == null) {
-                    if(dx[i] == 0) {
+            for (int i = 0; i < 8; i += 2) {
+                if (townBlocksContainer.get(block.getDim(), block.getX() + dx[i], block.getZ() + dz[i]) == null) {
+                    if (dx[i] == 0) {
                         z = dz[i] == -1 ? block.getZ() << 4 : (block.getZ() << 4) + 15;
                         x = block.getX() << 4;
-                        for(int k = x + 1; k <= x + 14; k++) {
+                        for (int k = x + 1; k <= x + 14; k++) {
                             y = WorldUtils.getMaxHeightWithSolid(block.getDim(), k, z);
                             BlockCoords blockCoord = new BlockCoords(k, y, z, block.getDim(), Blocks.lapis_block);
                             blockList.add(blockCoord);
@@ -170,7 +163,7 @@ public class VisualsHandler {
                     } else {
                         x = dx[i] == -1 ? block.getX() << 4 : (block.getX() << 4) + 15;
                         z = block.getZ() << 4;
-                        for(int k = z + 1; k <= z + 14; k++) {
+                        for (int k = z + 1; k <= z + 14; k++) {
                             y = WorldUtils.getMaxHeightWithSolid(block.getDim(), x, k);
                             BlockCoords blockCoord = new BlockCoords(x, y, k, block.getDim(), Blocks.lapis_block);
                             blockList.add(blockCoord);
@@ -180,7 +173,7 @@ public class VisualsHandler {
             }
 
             // Showing corners in borders
-            for(int i = 1; i < 8; i+=2) {
+            for (int i = 1; i < 8; i += 2) {
                 x = dx[i] == 1 ? block.getX() << 4 : (block.getX() << 4) + 15;
                 z = dz[i] == 1 ? block.getZ() << 4 : (block.getZ() << 4) + 15;
                 y = WorldUtils.getMaxHeightWithSolid(block.getDim(), x, z);
@@ -189,56 +182,33 @@ public class VisualsHandler {
             }
         }
 
-        addMarkedBlocks(town, caller, blockList);
-    }
-
-    public void updatePlotBorders(Plot plot) {
-        List<EntityPlayerMP> callers = new ArrayList<EntityPlayerMP>();
-        for(Map.Entry<PlayerObjectPair, List<BlockCoords>> entry : markedBlocks.entrySet()) {
-            if(entry.getKey().getObject().equals(plot)) {
-                for(BlockCoords coords : entry.getValue()) {
-                    coords.deleted = true;
-                }
-                callers.add(entry.getKey().getPlayer());
-            }
-        }
-        for(EntityPlayerMP player : callers) {
-            markPlotBorders(plot, player);
-        }
-    }
-
-    public void updateTownBorders(Town town) {
-        List<EntityPlayerMP> callers = new ArrayList<EntityPlayerMP>();
-        for(Map.Entry<PlayerObjectPair, List<BlockCoords>> entry : markedBlocks.entrySet()) {
-            if(entry.getKey().getObject().equals(town)) {
-                for(BlockCoords coords : entry.getValue()) {
-                    coords.deleted = true;
-                }
-                callers.add(entry.getKey().getPlayer());
-            }
-        }
-        for(EntityPlayerMP player : callers) {
-            markTownBorders(town, player);
-        }
+        addMarkedBlocks(caller, townBlocksContainer, blockList);
     }
 
     /**
-     * This is used only externally in case there already is a list of block coords yet to be unmarked
      * This method is gonna wait until the tick function clears the spot.
      */
-    public void addMarkedBlocks(final Object key, final EntityPlayerMP caller, final List<BlockCoords> coordsList) {
+    public void addMarkedBlocks(final EntityPlayerMP caller, final Object key, final List<BlockCoords> blockCoords) {
         // Waits 5 milliseconds if there are still blocks to be deleted.
         Thread t = new Thread() {
             @Override
             public void run() {
-                PlayerObjectPair pair = new PlayerObjectPair(caller, key);
-                if (markedBlocks.containsKey(pair)) {
+
+                VisualObject visualObject = null;
+                for(VisualObject marked : markedBlocks) {
+                    if(marked.player == caller && marked.object == key) {
+                        visualObject = marked;
+                    }
+                }
+
+                if (visualObject != null) {
                     boolean blocksNotDeleted = true;
-                    while (blocksNotDeleted && markedBlocks.get(pair) != null) {
+                    while (blocksNotDeleted && markedBlocks.contains(visualObject)) {
                         blocksNotDeleted = false;
-                        for (BlockCoords coords : markedBlocks.get(pair)) {
-                            if (coords.deleted)
+                        for (BlockCoords coords : visualObject.blockCoords) {
+                            if (coords != null && coords.deleted) {
                                 blocksNotDeleted = true;
+                            }
                         }
                         try {
                             Thread.sleep(5);
@@ -246,26 +216,94 @@ public class VisualsHandler {
                             MyTown.instance.LOG.error(ExceptionUtils.getStackTrace(ex));
                         }
                     }
+                    visualObject.blockCoords.addAll(blockCoords);
+                } else {
+                    visualObject = new VisualObject(caller, key, blockCoords);
+                    markedBlocks.add(visualObject);
                 }
-                markedBlocks.put(pair, coordsList);
             }
         };
         t.start();
     }
 
-    public List<BlockCoords> getMarkedBlocks() {
-        List<BlockCoords> result = new ArrayList<BlockCoords>();
-        for(List<BlockCoords> list : markedBlocks.values())
-            result.addAll(list);
-        return result;
+    public void updatePlotBorders(Plot plot) {
+        List<EntityPlayerMP> callers = new ArrayList<EntityPlayerMP>();
+        for(VisualObject visualObject : markedBlocks) {
+            if(visualObject.isPlot() && visualObject.object.equals(plot)) {
+                for(BlockCoords coords : visualObject.blockCoords) {
+                    coords.deleted = true;
+                }
+                callers.add(visualObject.player);
+            }
+        }
+        for(EntityPlayerMP player : callers) {
+            markPlotBorders(plot, player);
+        }
     }
 
-    public boolean isBlockMarked(int x, int y, int z, int dim) {
-        for(List<BlockCoords> coordsList : markedBlocks.values()) {
-            for (BlockCoords coord : coordsList) {
-                if (coord.x == x && coord.y == y && coord.z == z && coord.dim == dim) {
-                    coord.packetSent = false;
-                    return true;
+    public void updateTownBorders(TownBlocksContainer townBlocksContainer) {
+        List<EntityPlayerMP> callers = new ArrayList<EntityPlayerMP>();
+        for(VisualObject visualObject : markedBlocks) {
+            if(visualObject.isTown() && visualObject.object.equals(townBlocksContainer)) {
+                for(BlockCoords coords : visualObject.blockCoords) {
+                    coords.deleted = true;
+                }
+                callers.add(visualObject.player);
+            }
+        }
+        for(EntityPlayerMP player : callers) {
+            markTownBorders(townBlocksContainer, player);
+        }
+    }
+
+    /**
+     * Unmarks all the blocks that are linked to the player and object key.
+     */
+    public synchronized void unmarkBlocks(EntityPlayerMP caller, Object key) {
+        for(VisualObject visualObject : markedBlocks) {
+            if(visualObject.player == caller && visualObject.object == key) {
+                for(BlockCoords blockCoords : visualObject.blockCoords)
+                    blockCoords.deleted = true;
+            }
+        }
+
+    }
+
+    public synchronized void unmarkBlocks(Object key) {
+        for(VisualObject visualObject : markedBlocks) {
+            if(visualObject.object == key) {
+                for(BlockCoords blockCoords : visualObject.blockCoords)
+                    blockCoords.deleted = true;
+            }
+        }
+    }
+
+    public void unmarkTowns(EntityPlayerMP caller) {
+        for(VisualObject visualObject : markedBlocks) {
+            if(visualObject.player == caller && visualObject.isTown()) {
+                for(BlockCoords blockCoords : visualObject.blockCoords)
+                    blockCoords.deleted = true;
+            }
+        }
+    }
+
+    public void unmarkPlots(EntityPlayerMP caller) {
+        for(VisualObject visualObject : markedBlocks) {
+            if(visualObject.player == caller && visualObject.isPlot()) {
+                for(BlockCoords blockCoords : visualObject.blockCoords)
+                    blockCoords.deleted = true;
+            }
+        }
+    }
+
+    public boolean isBlockMarked(int x, int y, int z, int dim, EntityPlayerMP player) {
+        for(VisualObject visualObject : markedBlocks) {
+            if(visualObject.player == player) {
+                for (BlockCoords coord : visualObject.blockCoords) {
+                    if (coord.x == x && coord.y == y && coord.z == z && coord.dim == dim) {
+                        coord.packetSent = false;
+                        return true;
+                    }
                 }
             }
         }
@@ -275,7 +313,7 @@ public class VisualsHandler {
     /**
      * Class used to store all the blocks that are marked.
      */
-    public class BlockCoords {
+    private class BlockCoords {
         private final int x;
         private final int y;
         private final int z;
@@ -285,7 +323,7 @@ public class VisualsHandler {
         /**
          * The block to which the sistem should change
          */
-        public final Block block;
+        private final Block block;
 
         public BlockCoords(int x, int y, int z, int dim, Block block) {
             this.x = x;
@@ -296,4 +334,23 @@ public class VisualsHandler {
         }
     }
 
+    private class VisualObject {
+        private EntityPlayerMP player;
+        private Object object;
+        private List<BlockCoords> blockCoords;
+
+        public VisualObject(EntityPlayerMP player, Object object, List<BlockCoords> blockCoords) {
+            this.player = player;
+            this.object = object;
+            this.blockCoords = blockCoords;
+        }
+
+        public boolean isTown() {
+            return object != null && object instanceof TownBlocksContainer;
+        }
+
+        public boolean isPlot() {
+            return object != null && object instanceof Plot;
+        }
+    }
 }

@@ -7,6 +7,7 @@ import com.google.gson.stream.JsonWriter;
 import cpw.mods.fml.common.Loader;
 import cpw.mods.fml.common.ModContainer;
 import mytown.MyTown;
+import myessentials.entities.Volume;
 import mytown.entities.flag.FlagType;
 import mytown.protection.Protection;
 import mytown.protection.segment.*;
@@ -91,6 +92,20 @@ public class ProtectionTypeAdapter extends TypeAdapter<Protection>{
             }
             if(segment.getConditionString() != null)
                 out.name("condition").value(StringUtils.join(segment.getConditionString(), " "));
+            if(segment.hasClientUpdate()) {
+                out.name("clientUpdate");
+                out.beginObject();
+                out.name("coords");
+                out.beginArray();
+                out.value(segment.getClientUpdateCoords().getMinX());
+                out.value(segment.getClientUpdateCoords().getMinY());
+                out.value(segment.getClientUpdateCoords().getMinZ());
+                out.value(segment.getClientUpdateCoords().getMaxX());
+                out.value(segment.getClientUpdateCoords().getMaxY());
+                out.value(segment.getClientUpdateCoords().getMaxZ());
+                out.endArray();
+                out.endObject();
+            }
             for (Map.Entry<String, List<Caller>> entry : segment.getGetters().getCallersMap().entrySet()) {
                 out.name(entry.getKey()).beginArray();
                 for(Caller caller : entry.getValue()) {
@@ -150,6 +165,21 @@ public class ProtectionTypeAdapter extends TypeAdapter<Protection>{
             out.name("onAdjacent").value(segment.isOnAdjacent());
             if(segment.getConditionString() != null)
                 out.name("condition").value(StringUtils.join(segment.getConditionString(), " "));
+            if(segment.hasClientUpdate()) {
+                out.name("clientUpdate");
+                out.beginObject();
+                out.name("coords");
+                out.beginArray();
+                out.value(segment.getClientUpdateCoords().getMinX());
+                out.value(segment.getClientUpdateCoords().getMinY());
+                out.value(segment.getClientUpdateCoords().getMinZ());
+                out.value(segment.getClientUpdateCoords().getMaxX());
+                out.value(segment.getClientUpdateCoords().getMaxY());
+                out.value(segment.getClientUpdateCoords().getMaxZ());
+                out.endArray();
+                out.name("isDirectional").value(segment.isDirectionalClientUpdate());
+                out.endObject();
+            }
             out.name("flag");
             if(segment.getFlag().getType() == Boolean.class && segment.getDenialValue() == Boolean.FALSE) {
                 out.value(segment.getFlag().toString());
@@ -201,16 +231,16 @@ public class ProtectionTypeAdapter extends TypeAdapter<Protection>{
                 if (modid == null)
                     throw new IOException("Missing modid for a protection!");
                 if(!Loader.isModLoaded(modid) && !"Minecraft".equals(modid)) {
-                    MyTown.instance.LOG.info("   Skipped protection because the mod " + modid + " wasn't loaded.");
+                    MyTown.instance.LOG.info("   Skipped protection because the mod {} wasn't loaded.", modid);
                     return null;
                 } else if(version != null && !verifyVersion(modid, version)) {
-                    MyTown.instance.LOG.info("   Skipped protection because it doesn't support the version loaded of mod: " + modid + " (" + version + ")");
+                    MyTown.instance.LOG.info("   Skipped protection because it doesn't support the version loaded of mod: {} ({})", modid, version);
                     return null;
                 }
             } else if("version".equals(nextName)) {
                 version = in.nextString();
                 if(modid != null && !"Vanilla".equals(modid) && !verifyVersion(modid, version)) {
-                    MyTown.instance.LOG.info("   Skipped protection because it doesn't support the version loaded of mod: " + modid + " (" + version + ")");
+                    MyTown.instance.LOG.info("   Skipped protection because it doesn't support the version loaded of mod: {} ({})", modid, version);
                     return null;
                 }
             } else if ("segments".equals(nextName)) {
@@ -228,6 +258,9 @@ public class ProtectionTypeAdapter extends TypeAdapter<Protection>{
                     String condition = null;
                     FlagType flag = null;
                     Object denialValue = null;
+
+                    Volume clientUpdateCoords = null;
+                    boolean directionalClientUpdate = false;
 
                     boolean isAdjacent = false;
                     boolean hasOwner = false;
@@ -285,7 +318,7 @@ public class ProtectionTypeAdapter extends TypeAdapter<Protection>{
 
                             if ("entity".equals(type)) {
                                 if ("entityType".equals(nextName)) {
-                                    entityType = EntityType.valueOf(in.nextString());
+                                	entityType = EntityType.valueOf(in.nextString());
                                     if (entityType == null)
                                         throw new SegmentException("[Segment: " + clazz + "] Invalid entity type.");
                                     continue;
@@ -293,13 +326,26 @@ public class ProtectionTypeAdapter extends TypeAdapter<Protection>{
                             }
                             if ("item".equals(type)) {
                                 if ("itemType".equals(nextName)) {
-                                    itemType = ItemType.valueOf(in.nextString());
+                                	itemType = ItemType.valueOf(in.nextString());
                                     if (itemType == null)
                                         throw new SegmentException("[Segment: " + clazz + "] Invalid item type.");
                                     continue;
                                 }
                                 if ("isAdjacent".equals(nextName)) {
                                     isAdjacent = in.nextBoolean();
+                                    continue;
+                                }
+                                if("clientUpdate".equals(nextName)) {
+                                    in.beginObject();
+                                    if("coords".equals(in.nextName())) {
+                                        in.beginArray();
+                                        clientUpdateCoords = new Volume(in.nextInt(), in.nextInt(), in.nextInt(), in.nextInt(), in.nextInt(), in.nextInt());
+                                        in.endArray();
+                                    }
+                                    if(in.peek() == JsonToken.NAME && "directional".equals(in.nextName())) {
+                                        directionalClientUpdate = in.nextBoolean();
+                                    }
+                                    in.endObject();
                                     continue;
                                 }
 
@@ -310,9 +356,19 @@ public class ProtectionTypeAdapter extends TypeAdapter<Protection>{
                                     continue;
                                 }
                                 if("blockType".equals(nextName)) {
-                                    blockType = BlockType.valueOf(in.nextString());
+                                	blockType = BlockType.valueOf(in.nextString());
                                     if(blockType == null)
                                         throw new SegmentException("[Segment: " + clazz + "] Invalid block type.");
+                                    continue;
+                                }
+                                if("clientUpdate".equals(nextName)) {
+                                    in.beginObject();
+                                    if("coords".equals(in.nextName())) {
+                                        in.beginArray();
+                                        clientUpdateCoords = new Volume(in.nextInt(), in.nextInt(), in.nextInt(), in.nextInt(), in.nextInt(), in.nextInt());
+                                        in.endArray();
+                                    }
+                                    in.endObject();
                                     continue;
                                 }
                             }
@@ -340,7 +396,7 @@ public class ProtectionTypeAdapter extends TypeAdapter<Protection>{
                                 if ("tileEntity".equals(type)) {
                                     // Log if the segment is using default protection
                                     if (getters.getCallersMap().get("xMin") == null || getters.getCallersMap().get("xMax") == null || getters.getCallersMap().get("zMin") == null || getters.getCallersMap().get("zMax") == null) {
-                                        MyTown.instance.LOG.info("   [Segment: " + clazz + "] Could not find one of the getters (xMin, xMax, zMin, zMax). Using default protection size.");
+                                        MyTown.instance.LOG.info("   [Segment: {}] Could not find one of the getters (xMin, xMax, zMin, zMax). Using default protection size.", clazz);
 
                                         // Removing all of them since it will only create problems if left there
                                         getters.removeGetter("xMin");
@@ -360,13 +416,13 @@ public class ProtectionTypeAdapter extends TypeAdapter<Protection>{
                                         MyTown.instance.LOG.info("   itemType is not specified, defaulting to 'RIGHT_CLICK_BLOCK'.");
                                         itemType = ItemType.RIGHT_CLICK_BLOCK;
                                     }
-                                    segment = new SegmentItem(clazz, getters, flag, denialValue, condition, itemType, isAdjacent);
+                                    segment = new SegmentItem(clazz, getters, flag, denialValue, condition, itemType, isAdjacent, clientUpdateCoords, directionalClientUpdate);
                                 } else if ("block".equals(type)) {
                                     if(blockType == null) {
                                         MyTown.instance.LOG.info("   blockType is not specified, defaulting to 'RIGHT_CLICK'.");
                                         blockType = BlockType.RIGHT_CLICK;
                                     }
-                                    segment = new SegmentBlock(clazz, getters, flag, denialValue, condition, blockType, meta);
+                                    segment = new SegmentBlock(clazz, getters, flag, denialValue, condition, blockType, meta, clientUpdateCoords);
                                 }
                             }
                         } catch (SegmentException ex) {
@@ -385,13 +441,13 @@ public class ProtectionTypeAdapter extends TypeAdapter<Protection>{
                         in.endObject();
                     }
                     if (segment == null)
-                        MyTown.instance.LOG.error("  [Segment: " + clazz + "] Segment was not properly initialized!");
+                        MyTown.instance.LOG.error("  [Segment: {}] Segment was not properly initialized!", clazz);
                     else {
                         // Precheck for configurations
                         //if(segment instanceof SegmentEntity && ((SegmentEntity) segment).type == EntityType.explosive && Config.useExtraEvents)
                         //    MyTown.instance.log.info("  [Segment:" + segment.getCheckClass().getName() + "] Omitting segment because use of extra events is enabled.");
                         //else {
-                            MyTown.instance.LOG.info("   Added segment for class: " + segment.getCheckClass().getName());
+                            MyTown.instance.LOG.info("   Added segment for class: {}", segment.getCheckClass().getName());
                             segments.add(segment);
                         //}
                     }

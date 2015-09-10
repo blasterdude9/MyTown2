@@ -1,87 +1,109 @@
 package mytown.entities;
 
-import com.google.common.base.Joiner;
-
-import java.util.*;
+import mypermissions.api.container.PermissionsContainer;
+import mytown.api.container.RanksContainer;
+import net.minecraft.util.EnumChatFormatting;
 
 public class Rank {
 
     /**
-     * Map that holds the name and the rank's permission of all the ranks that are added to a town on creation.
-     * And can be configured in the config file.
+     * All the default ranks that are added to each town on creation (except AdminTowns)
      */
-    public static final Map<String, List<String>> defaultRanks = new HashMap<String, List<String>>();
-    public static String theDefaultRank;
-    public static String theMayorDefaultRank; // ok not the best name
+    public static final RanksContainer defaultRanks = new RanksContainer();
 
-    private String key, name;
-    private List<String> permissions;
-    private Town town;
+    public static void initDefaultRanks() {
 
-    public Rank(String name, Town town) {
-        this(name, new ArrayList<String>(), town);
+        Rank mayorRank = new Rank("Mayor", null, Type.MAYOR);
+        Rank assistantRank = new Rank("Assistant", null, Type.REGULAR);
+        Rank residentRank = new Rank("Resident", null, Type.DEFAULT);
+
+        mayorRank.permissionsContainer.add("mytown.cmd");
+        mayorRank.permissionsContainer.add("mytown.bypass");
+
+        assistantRank.permissionsContainer.add("mytown.cmd");
+        assistantRank.permissionsContainer.add("-mytown.cmd.mayor");
+        assistantRank.permissionsContainer.add("mytown.bypass.plot");
+        assistantRank.permissionsContainer.add("mytown.bypass.flag");
+
+        residentRank.permissionsContainer.add("mytown.cmd.everyone");
+        residentRank.permissionsContainer.add("mytown.cmd.outsider");
+        residentRank.permissionsContainer.add("mytown.bypass.flag");
+        residentRank.permissionsContainer.add("-mytown.bypass.flag.restrictions");
+
+        Rank.defaultRanks.clear();
+        Rank.defaultRanks.add(mayorRank);
+        Rank.defaultRanks.add(assistantRank);
+        Rank.defaultRanks.add(residentRank);
     }
 
-    public Rank(String name, List<String> permissions, Town town) {
+    private String name, newName = null;
+    private Town town;
+    private Type type;
+
+    public final PermissionsContainer permissionsContainer = new PermissionsContainer();
+
+    public Rank(String name, Town town, Type type) {
         this.name = name;
         this.town = town;
-        this.permissions = permissions;
-        updateKey();
+        this.type = type;
     }
 
     public String getName() {
         return name;
     }
 
-    public boolean addPermission(String permission) {
-        return permissions.add(permission);
+    public void rename(String newName) {
+        this.newName = newName;
     }
 
-    public void addPermissions(Collection<String> permissions) {
-        this.permissions.addAll(permissions);
+    public void resetNewName() {
+        this.name = newName;
+        this.newName = null;
     }
 
-    public boolean removePermission(String permission) {
-        return permissions.remove(permission);
-    }
-
-    public boolean hasPermission(String permission) {
-        return permissions.contains(permission);
-    }
-
-    public boolean hasPermissionOrSuperPermission(String permission) {
-        if (hasPermission(permission))
-            return true;
-        for (String p : permissions) {
-            if (permission.contains(p)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    public List<String> getPermissions() {
-        return permissions;
-    }
-
-    public String getPermissionsString() {
-        return Joiner.on(", ").join(getPermissions());
-    }
-
-    public String getKey() {
-        return key;
-    }
-
-    private void updateKey() {
-        key = String.format("%s;%s", town.getName(), name);
+    public String getNewName() {
+        return this.newName;
     }
 
     public Town getTown() {
         return town;
     }
 
+    public Type getType() {
+        return type;
+    }
+
+    public void setType(Type type) {
+        this.type = type;
+    }
+
     @Override
     public String toString() {
-        return String.format("Rank: {Name: %s, Town: %s, Permissions: [%s]}", getName(), getTown().getName(), Joiner.on(", ").join(getPermissions()));
+        return type.color + getName();
+    }
+
+    public enum Type {
+        /**
+         * Rank that can do anything
+         */
+        MAYOR(EnumChatFormatting.RED.toString(), true),
+
+        /**
+         * Rank that is assigned to players on joining the town
+         */
+        DEFAULT(EnumChatFormatting.GREEN.toString(), true),
+
+        /**
+         * Nothing special to this rank
+         */
+        REGULAR(EnumChatFormatting.WHITE.toString(), false);
+
+        public final String color;
+        public final boolean unique;
+
+        Type(String color, boolean unique) {
+            this.color = color;
+            this.unique = unique;
+        }
     }
 }

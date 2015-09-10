@@ -1,6 +1,6 @@
 package mytown.protection.segment;
 
-import mytown.core.utils.StringUtils;
+import myessentials.utils.StringUtils;
 import mytown.entities.flag.FlagType;
 import mytown.protection.segment.getter.Getters;
 import mytown.util.exceptions.ConditionException;
@@ -55,19 +55,9 @@ public class Segment {
         //MyTown.instance.log.info("Checking condition: " + StringUtils.join(conditionString, " "));
         boolean current;
 
-        /*
-            This is very important when checking as the ItemStack that is passed doesn't
-            have the methods and fields needed only the Item itself does.
-
-            Block, TileEntity and Entity should be left unchanged as their classes should be mod defined
-         */
-
         Object instance;
-        if(object instanceof ItemStack) {
-            instance = ((ItemStack) object).getItem();
-        } else {
-            instance = object;
-        }
+        instance = object;
+
         for(int i = 0; i < conditionString.length; i += 4) {
 
             // Get the boolean value of each part of the condition.

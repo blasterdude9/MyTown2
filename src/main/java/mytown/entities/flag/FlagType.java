@@ -1,6 +1,6 @@
 package mytown.entities.flag;
 
-import mytown.proxies.LocalizationProxy;
+import mytown.MyTown;
 
 /**
  * Flags enumeration. Enumerating all flags here
@@ -25,7 +25,7 @@ public enum FlagType {
     MOBS(String.class, "all", new String[]{"all", "passives", "none"}, true, "all", Property.ALL),
 
     // Allows outsiders to hurt passive and other types of entities.
-    PVE(Boolean.class, false, null, true, false, Property.ALL),
+    PVE(Boolean.class, false, null, true, true, Property.ALL),
 
     // Allows the use of some items such as: Bucket, Spawn Eggs etc.
     USAGE(Boolean.class, false, null, true, true, Property.ALL),
@@ -39,7 +39,7 @@ public enum FlagType {
     // ---- Flags that don't go in plots. ----
 
     // Allows modifying blocks.
-    MODIFY(Boolean.class, false, null, true, true, Property.TOWN_ONLY, true),
+    MODIFY(Boolean.class, false, null, true, true, Property.TOWN_ONLY),
 
     // Allows explosions.
     EXPLOSIONS(Boolean.class, false, null, true, true, Property.TOWN_ONLY),
@@ -92,7 +92,7 @@ public enum FlagType {
      * Returns the permission needed to bypass the protection.
      */
     public String getBypassPermission() {
-        return "mytown.protection.bypass." + this.toString();
+        return "mytown.bypass.flag." + this.toString().toLowerCase();
     }
 
     /**
@@ -131,21 +131,21 @@ public enum FlagType {
      * Gets the localized description
      */
     public String getLocalizedDescription() {
-        return LocalizationProxy.getLocalization().getLocalization("mytown.flag." + this.toString());
+        return MyTown.instance.LOCAL.getLocalization("mytown.flag." + this.toString());
     }
 
     /**
      * Gets the localized message of when the flag denies an action of a player
      */
     public String getLocalizedProtectionDenial() {
-        return LocalizationProxy.getLocalization().getLocalization("mytown.protection." + this.toString());
+        return MyTown.instance.LOCAL.getLocalization("mytown.protection." + this.toString());
     }
 
     /**
      * Gets the localized message that is sent to all players on the town when something tried to bypass protection.
      */
     public String getLocalizedTownNotification() {
-        return LocalizationProxy.getLocalization().getLocalization("mytown.protection.notify." + this.toString());
+        return MyTown.instance.LOCAL.getLocalization("mytown.protection.notify." + this.toString());
     }
 
     public boolean isWhitelistable() {

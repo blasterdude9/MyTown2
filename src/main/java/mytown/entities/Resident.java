@@ -1,160 +1,54 @@
 package mytown.entities;
 
-import com.google.common.collect.ImmutableList;
+import myessentials.utils.ChatUtils;
 import mytown.MyTown;
-import mytown.api.interfaces.PlotsContainer;
-import mytown.api.interfaces.TownsContainer;
+import mytown.api.container.GenericContainer;
+import mytown.api.container.PlotsContainer;
+import mytown.api.container.TownsContainer;
 import mytown.config.Config;
-import mytown.core.utils.ChatUtils;
-import mytown.datasource.MyTownDatasource;
+import mytown.datasource.MyTownUniverse;
 import mytown.entities.flag.FlagType;
-import mytown.handlers.VisualsHandler;
-import mytown.proxies.DatasourceProxy;
-import mytown.proxies.LocalizationProxy;
-import mytown.util.Constants;
-import mytown.util.MyTownUtils;
+import mytown.entities.tools.Tool;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.init.Blocks;
-import net.minecraft.init.Items;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NBTTagList;
-import net.minecraft.nbt.NBTTagString;
 import net.minecraft.util.ChunkCoordinates;
-import net.minecraft.util.EnumChatFormatting;
 import net.minecraftforge.common.util.FakePlayer;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 
-import java.util.ArrayList;
 import java.util.Date;
-import java.util.List;
 import java.util.UUID;
 
-public class Resident implements PlotsContainer, TownsContainer { // TODO Make Comparable
+public class Resident {
     private EntityPlayer player;
     private UUID playerUUID;
-    private String playerName; // This is only for display purposes when the player is offline
-    private Date joinDate, lastOnline;
-    private int extraBlocks = 0;
+    private String playerName;
+    private Date joinDate = new Date();
+    private Date lastOnline = new Date();
+
     private int teleportCooldown = 0;
 
-    // Plot selection variables
-    private int selectionX1, selectionY1, selectionZ1, selectionX2, selectionY2, selectionZ2, selectionDim;
-    private Town selectionTown;
-    private boolean firstSelectionActive = false, secondSelectionActive = false;
-    private boolean mapOn = false;
+    private int extraBlocks = 0;
 
-    private List<Plot> plots = new ArrayList<Plot>();
-    private List<Town> towns = new ArrayList<Town>();
-    private Town selectedTown = null;
-    private List<Town> invites = new ArrayList<Town>();
-    private List<Resident> friends = new ArrayList<Resident>();
-    private List<Resident> friendRequests = new ArrayList<Resident>();
+    public final PlotsContainer plotsContainer = new PlotsContainer(Config.defaultMaxPlots);
+    public final TownsContainer townInvitesContainer = new TownsContainer();
+    public final TownsContainer townsContainer = new TownsContainer();
+    public final GenericContainer<Tool> toolContainer = new GenericContainer<Tool>();
 
     public Resident(EntityPlayer pl) {
         setPlayer(pl);
-        this.joinDate = new Date();
-        this.lastOnline = joinDate;
+        this.playerUUID = pl.getPersistentID();
     }
 
-    public Resident(String uuid, String playerName) {
-        setUUID(uuid);
-        this.playerName = playerName;
-        this.joinDate = new Date();
-        this.lastOnline = joinDate;
-    }
-
-    /**
-     * Creates a new Resident with the given uuid, playerName, joinDate, and lastOnline. Used only during datasource loading!
-     */
-    public Resident(String uuid, String playerName, long joinDate, long lastOnline, int extraBlocks) {
-        setUUID(uuid);
-        this.joinDate = new Date(joinDate * 1000L);
-        this.lastOnline = new Date(lastOnline * 1000L);
-        this.playerName = playerName;
-        this.extraBlocks = extraBlocks;
-    }
-
-    /**
-     * Returns the EntityPlayer, or null
-     */
-    public EntityPlayer getPlayer() {
-        return player;
-    }
-
-    /**
-     * Sets the player and the UUID
-     */
-    public void setPlayer(EntityPlayer pl) {
-        this.player = pl;
-        setUUID(pl.getPersistentID());
-        this.playerName = pl.getDisplayName();
-    }
-
-    public UUID getUUID() {
-        return playerUUID;
-    }
-
-    public void setUUID(UUID uuid) {
+    public Resident(UUID uuid, String playerName) {
         this.playerUUID = uuid;
+        this.playerName = playerName;
     }
 
-    public void setUUID(String uuid) {
-        setUUID(UUID.fromString(uuid));
-    }
-
-    /**
-     * Returns the name of the player for display purposes. <br/>
-     * NEVER rely on this to store info against. The player name can change at any point, use the UUID instead.
-     */
-    public String getPlayerName() {
-        return playerName;
-    }
-
-    /**
-     * Gets when the Resident first joined
-     */
-    public Date getJoinDate() {
-        return joinDate;
-    }
-
-    /**
-     * Gets when the Resident was last online
-     */
-    public Date getLastOnline() {
-        if (this.player != null) {
-            lastOnline = new Date(); // TODO Do we REALLY need to update this each time its received, or can we do this better?
-        }
-        return lastOnline;
-    }
-
-    /**
-     * Sets when the resident was last online
-     */
-    public void setLastOnline(Date date) {
-        this.lastOnline = date;
-    }
-
-    /**
-     * Gets the extra blocks the resident adds to the town's max total blocks
-     */
-    public int getExtraBlocks() {
-        return extraBlocks;
-    }
-
-    /**
-     * Sets the extra blocks the resident adds to the town's max total blocks
-     */
-    public void setExtraBlocks(int extraBlocks) {
-        this.extraBlocks = extraBlocks;
-    }
-
-    public void setTeleportCooldown(int cooldownTicks) {
-        this.teleportCooldown = cooldownTicks;
-    }
-
-    public int getTeleportCooldown() {
-        return teleportCooldown;
+    public Resident(UUID uuid, String playerName, long joinDate, long lastOnline) {
+        this(uuid, playerName);
+        this.joinDate.setTime(joinDate * 1000L);
+        this.lastOnline.setTime(lastOnline * 1000L);
     }
 
     /**
@@ -165,108 +59,7 @@ public class Resident implements PlotsContainer, TownsContainer { // TODO Make C
             teleportCooldown--;
     }
 
-    @Override
-    public String toString() {
-        return String.format("Resident: {Name: %s, UUID: %s}", playerName, playerUUID);
-    }
-
-    /* ----- IHasPlots ----- */
-
-    @Override
-    public void addPlot(Plot plot) {
-        plots.add(plot);
-    }
-
-    @Override
-    public void removePlot(Plot plot) {
-        plots.remove(plot);
-    }
-
-    @Override
-    public boolean hasPlot(Plot plot) {
-        return plots.contains(plot);
-    }
-
-    @Override
-    public ImmutableList<Plot> getPlots() {
-        return ImmutableList.copyOf(plots);
-    }
-
-    /**
-     * This does NOT perform as well as some other methods of retrieving plots. Please use sparingly and with caution!
-     * @see PlotsContainer
-     */
-    @Override
-    public Plot getPlotAtCoords(int dim, int x, int y, int z) {
-        for (Plot plot : plots) {
-            if (plot.isCoordWithin(dim, x, y, z)) {
-                return plot;
-            }
-        }
-        return null;
-    }
-
-    /* ----- IHasTowns ----- */
-
-    @Override
-    public void addTown(Town town) {
-        towns.add(town);
-    }
-
-    @Override
-    public void removeTown(Town town) {
-        towns.remove(town);
-    }
-
-    @Override
-    public boolean hasTown(Town town) {
-        return towns.contains(town);
-    }
-
-    @Override
-    public ImmutableList<Town> getTowns() {
-        return ImmutableList.copyOf(towns);
-    }
-
-    /**
-     * Returns the currently selected Town, the first Town (if none is selected), or null if not part of a town.
-     */
-    public Town getSelectedTown() {
-        if (selectedTown == null) {
-            return towns.isEmpty() ? null : towns.get(0);
-        }
-        return selectedTown;
-    }
-
-    public void selectTown(Town town) {
-        selectedTown = town;
-    }
-
-    /**
-     * Returns this Residents rank in the given Town, or null if the player is not part of the Town
-     */
-    public Rank getTownRank(Town town) {
-        if (!towns.contains(town))
-            return null;
-        return town.getResidentRank(this);
-    }
-
-    /**
-     * Shortcut for Town#getTownRank(Resident#getSelectedTown())
-     */
-    public Rank getTownRank() {
-        return getTownRank(getSelectedTown());
-    }
-
     /* ----- Map ----- */
-
-    public boolean isMapOn() {
-        return mapOn;
-    }
-
-    public void setMapOn(boolean isOn) {
-        mapOn = isOn;
-    }
 
     /**
      * Called when a player changes location from a chunk to another
@@ -275,17 +68,17 @@ public class Resident implements PlotsContainer, TownsContainer { // TODO Make C
         if (oldChunkX != newChunkX || oldChunkZ != newChunkZ && player != null) {
             TownBlock oldTownBlock, newTownBlock;
 
-            oldTownBlock = getDatasource().getBlock(dimension, oldChunkX, oldChunkZ);
-            newTownBlock = getDatasource().getBlock(dimension, newChunkX, newChunkZ);
+            oldTownBlock = MyTownUniverse.instance.blocks.get(dimension, oldChunkX, oldChunkZ);
+            newTownBlock = MyTownUniverse.instance.blocks.get(dimension, newChunkX, newChunkZ);
 
             if (oldTownBlock == null && newTownBlock != null || oldTownBlock != null && newTownBlock != null && !oldTownBlock.getTown().getName().equals(newTownBlock.getTown().getName())) {
-                if (towns.contains(newTownBlock.getTown())) {
-                    sendMessage(MyTown.getLocal().getLocalization("mytown.notification.enter.ownTown", newTownBlock.getTown().getName()));
+                if (townsContainer.contains(newTownBlock.getTown())) {
+                    sendMessage(MyTown.instance.LOCAL.getLocalization("mytown.notification.enter.ownTown", newTownBlock.getTown().getName()));
                 } else {
-                    sendMessage(MyTown.getLocal().getLocalization("mytown.notification.enter.town", newTownBlock.getTown().getName()));
+                    sendMessage(MyTown.instance.LOCAL.getLocalization("mytown.notification.enter.town", newTownBlock.getTown().getName()));
                 }
             } else if (oldTownBlock != null && newTownBlock == null) {
-                sendMessage(MyTown.getLocal().getLocalization("mytown.notification.enter.wild"));
+                sendMessage(MyTown.instance.LOCAL.getLocalization("mytown.notification.enter.wild"));
             }
         }
     }
@@ -296,99 +89,36 @@ public class Resident implements PlotsContainer, TownsContainer { // TODO Make C
     public void checkLocationOnDimensionChanged(int newChunkX, int newChunkZ, int dimension) {
         TownBlock newTownBlock;
 
-        newTownBlock = getDatasource().getBlock(dimension, newChunkX, newChunkZ);
+        newTownBlock = MyTownUniverse.instance.blocks.get(dimension, newChunkX, newChunkZ);
 
         if (newTownBlock == null) {
-            sendMessage(MyTown.getLocal().getLocalization("mytown.notification.enter.wild"));
-        } else if (towns.contains(newTownBlock.getTown())) {
-            sendMessage(MyTown.getLocal().getLocalization("mytown.notification.enter.ownTown", newTownBlock.getTown().getName()));
+            sendMessage(MyTown.instance.LOCAL.getLocalization("mytown.notification.enter.wild"));
+        } else if (townsContainer.contains(newTownBlock.getTown())) {
+            sendMessage(MyTown.instance.LOCAL.getLocalization("mytown.notification.enter.ownTown", newTownBlock.getTown().getName()));
         } else {
-            sendMessage(MyTown.getLocal().getLocalization("mytown.notification.enter.town", newTownBlock.getTown().getName()));
+            sendMessage(MyTown.instance.LOCAL.getLocalization("mytown.notification.enter.town", newTownBlock.getTown().getName()));
         }
-    }
-
-    /* ----- Invites ----- */
-
-    public void addInvite(Town invite) {
-        invites.add(invite);
-    }
-
-    public void removeInvite(Town invite) {
-        invites.remove(invite);
-    }
-
-    public void removeInvite(String name) {
-        for (Town t : invites) {
-            if (t.getName().equals(name)) {
-                invites.remove(t);
-                break;
-            }
-        }
-    }
-
-    public ImmutableList<Town> getInvites() {
-        return ImmutableList.copyOf(invites);
-    }
-
-    public Town getInvite(String townName) {
-        for (Town t : invites) {
-            if (t.getName().equals(townName)) {
-                return t;
-            }
-        }
-        return null;
-    }
-
-    public boolean hasInvite(Town town) {
-        return invites.contains(town);
-    }
-
-    /* ---- Friends ---- */
-
-    public boolean addFriend(Resident res) {
-        return friends.add(res);
-    }
-
-    public boolean removeFriend(Resident res) {
-        return friends.remove(res);
-    }
-
-    public boolean hasFriend(Resident res) {
-        return friends.contains(res);
-    }
-
-    public List<Resident> getFriends() {
-        return friends;
-    }
-
-    public boolean addFriendRequest(Resident res) {
-        if (friends.contains(res) || friendRequests.contains(res))
-            return false;
-        return friendRequests.add(res);
-    }
-
-    public boolean removeFriendRequest(Resident res) {
-        return friendRequests.remove(res);
-    }
-
-    public boolean hasFriendRequest(Resident res) {
-        return friendRequests.contains(res);
     }
 
     /* ----- Helpers ----- */
 
     public void sendMessage(String msg) {
-        if (getPlayer() != null && !(getPlayer() instanceof FakePlayer))
-            ChatUtils.sendChat(getPlayer(), msg);
+        try {
+            if (getPlayer() != null && !(getPlayer() instanceof FakePlayer))
+                ChatUtils.sendChat(getPlayer(), msg);
+        } catch (NullPointerException ex) {
+            MyTown.instance.LOG.info("You are probably using a modified server that messes with order of Player joining/leaving. This crash is nothing serious.");
+            MyTown.instance.LOG.error(ExceptionUtils.getStackTrace(ex));
+        }
     }
 
     /**
      * Sends a localized message and a list of owners to which the protection was bypassed
      */
-    public void protectionDenial(String message, String owner) {
+    public void protectionDenial(FlagType flag, String owners) {
         if (getPlayer() != null) {
-            ChatUtils.sendChat(getPlayer(), message);
-            ChatUtils.sendChat(getPlayer(), owner);
+            ChatUtils.sendChat(getPlayer(), flag.getLocalizedProtectionDenial());
+            ChatUtils.sendChat(getPlayer(), MyTown.instance.LOCAL.getLocalization("mytown.notification.town.owners", owners));
         }
     }
 
@@ -396,8 +126,8 @@ public class Resident implements PlotsContainer, TownsContainer { // TODO Make C
      * Respawns the player at town's spawn point or, if that doesn't exist, at his own spawn point.
      */
     public void respawnPlayer() {
-        if (getSelectedTown() != null) {
-            getSelectedTown().sendToSpawn(this);
+        if (townsContainer.getMainTown() != null) {
+            townsContainer.getMainTown().sendToSpawn(this);
             return;
         }
 
@@ -426,227 +156,69 @@ public class Resident implements PlotsContainer, TownsContainer { // TODO Make C
             int z = (int) Math.floor(player.posZ);
             boolean ok = false;
             while(!ok) {
-                while (!town.checkPermission(this, FlagType.ENTER, false, player.dimension, x, y, z) && town.isPointInTown(player.dimension, x, z))
+                while (!town.hasPermission(this, FlagType.ENTER, false, player.dimension, x, y, z) && town.isPointInTown(player.dimension, x, z))
                     x++;
                 x += 3;
 
                 while(player.worldObj.getBlock(x, y, z) != Blocks.air && player.worldObj.getBlock(x, y + 1, z) != Blocks.air && y < 256)
                     y++;
 
-                if(town.checkPermission(this, FlagType.ENTER, false, player.dimension, x, y, z) || !town.isPointInTown(player.dimension, x, z))
+                if(town.hasPermission(this, FlagType.ENTER, false, player.dimension, x, y, z) || !town.isPointInTown(player.dimension, x, z))
                     ok = true;
             }
             player.setPositionAndUpdate(x, y, z);
         }
     }
 
-    /* ----- Plot Selection ----- */
+    public EntityPlayer getPlayer() {
+        return player;
+    }
 
-    /**
-     * Gives the player a Selector Tool for selecting plots.
-     */
-    public void startPlotSelection() {
-        ItemStack selectionTool = new ItemStack(Items.wooden_hoe);
-        selectionTool.setStackDisplayName(Constants.EDIT_TOOL_NAME);
-        NBTTagList lore = new NBTTagList();
-        lore.appendTag(new NBTTagString(Constants.EDIT_TOOL_DESCRIPTION_PLOT));
-        lore.appendTag(new NBTTagString(EnumChatFormatting.DARK_AQUA + "Uses: 1"));
-        selectionTool.getTagCompound().getCompoundTag("display").setTag("Lore", lore);
+    public void setPlayer(EntityPlayer pl) {
+        this.player = pl;
+        this.playerName = pl.getDisplayName();
+    }
 
-        boolean ok = !player.inventory.hasItemStack(selectionTool);
-        boolean result = false;
-        if (ok) {
-            result = player.inventory.addItemStackToInventory(selectionTool);
-        }
-        if (result || !ok) {
-            sendMessage(LocalizationProxy.getLocalization().getLocalization("mytown.notification.plot.start"));
-        } else {
-            sendMessage(LocalizationProxy.getLocalization().getLocalization("mytown.cmd.err.plot.start.failed"));
-        }
+    public UUID getUUID() {
+        return playerUUID;
     }
 
     /**
-     * Selects a corner of a soon to be plot returns true if the selection is valid.
+     * Returns the name of the player for display purposes. <br/>
+     * NEVER rely on this to store info against. The player name can change at any point, use the UUID instead.
      */
-    public boolean selectBlockForPlot(int dim, int x, int y, int z) {
-        TownBlock tb = getDatasource().getBlock(dim, x >> 4, z >> 4);
-        if (firstSelectionActive && selectionDim != dim)
-            return false;
-        if (tb == null || tb.getTown() != getSelectedTown() && !firstSelectionActive || tb.getTown() != selectionTown && firstSelectionActive) {
-            return false;
-        }
-        if (!firstSelectionActive) {
-            secondSelectionActive = false;
-            selectionDim = dim;
-            selectionX1 = x;
-            selectionY1 = y;
-            selectionZ1 = z;
-            selectionTown = tb.getTown();
-            firstSelectionActive = true;
-
-            // This is marked twice :P
-            if(getPlayer() instanceof EntityPlayerMP)
-                VisualsHandler.instance.markBlock(x, y, z, dim, Blocks.redstone_block, (EntityPlayerMP) getPlayer(), null);
-
-        } else {
-
-            selectionX2 = x;
-            selectionY2 = y;
-            selectionZ2 = z;
-            secondSelectionActive = true;
-            if(getPlayer() instanceof EntityPlayerMP)
-                VisualsHandler.instance.markPlotCorners(selectionX1, selectionY1, selectionZ1, selectionX2, selectionY2, selectionZ2, selectionDim, (EntityPlayerMP) getPlayer());
-        }
-
-        return true;
+    public String getPlayerName() {
+        return playerName;
     }
 
-
-    public boolean isFirstPlotSelectionActive() {
-        return firstSelectionActive;
+    public Date getJoinDate() {
+        return joinDate;
     }
 
-    public boolean isSecondPlotSelectionActive() {
-        return secondSelectionActive;
+    public Date getLastOnline() {
+        if (this.player != null) {
+            lastOnline = new Date(); // TODO Do we REALLY need to update this each time its received, or can we do this better?
+        }
+        return lastOnline;
     }
 
-    public Plot makePlotFromSelection(String plotName) {
-        if (!secondSelectionActive || !firstSelectionActive) {
-            sendMessage(LocalizationProxy.getLocalization().getLocalization("mytown.cmd.err.plot.notSelected"));
-            resetSelection(true);
-            return null;
-        }
-
-        if(!(selectedTown instanceof AdminTown)) {
-            if((Math.abs(selectionX1 - selectionX2) + 1) * (Math.abs(selectionZ1 - selectionZ2) + 1) < Config.minPlotsArea || Math.abs(selectionY1 - selectionY2) + 1 < Config.minPlotsHeight) {
-                sendMessage(LocalizationProxy.getLocalization().getLocalization("mytown.cmd.err.plot.tooSmall", Config.minPlotsArea, Config.minPlotsHeight));
-                resetSelection(true);
-                return null;
-            } else if((Math.abs(selectionX1 - selectionX2) + 1) * (Math.abs(selectionZ1 - selectionZ2) + 1) > Config.maxPlotsArea || Math.abs(selectionY1 - selectionY2) + 1 > Config.maxPlotsHeight) {
-                sendMessage(LocalizationProxy.getLocalization().getLocalization("mytown.cmd.err.plot.tooLarge", Config.maxPlotsArea, Config.maxPlotsHeight));
-                resetSelection(true);
-                return null;
-            }
-        }
-
-        int x1 = selectionX1, x2 = selectionX2, y1 = selectionY1, y2 = selectionY2, z1 = selectionZ1, z2 = selectionZ2;
-
-        if (x2 < x1) {
-            int aux = x1;
-            x1 = x2;
-            x2 = aux;
-        }
-        if (y2 < y1) {
-            int aux = y1;
-            y1 = y2;
-            y2 = aux;
-        }
-        if (z2 < z1) {
-            int aux = z1;
-            z1 = z2;
-            z2 = aux;
-        }
-
-        int lastX = 1000000, lastZ = 1000000;
-        for (int i = x1; i <= x2; i++) {
-            for (int j = z1; j <= z2; j++) {
-
-                // Verifying if it's in town
-                if (i >> 4 != lastX || j >> 4 != lastZ) {
-                    lastX = i >> 4;
-                    lastZ = j >> 4;
-                    if (!getDatasource().hasBlock(selectionDim, lastX, lastZ, selectionTown)) {
-                        sendMessage(LocalizationProxy.getLocalization().getLocalization("mytown.cmd.err.plot.outside"));
-                        resetSelection(true);
-                        return null;
-                    }
-                }
-
-                // Verifying if it's inside another plot
-                for (int k = y1; k <= y2; k++) {
-                    Plot plot = selectionTown.getPlotAtCoords(selectionDim, i, k, j);
-                    if (plot != null) {
-                        sendMessage(LocalizationProxy.getLocalization().getLocalization("mytown.cmd.err.plot.insideOther", plot.getName()));
-                        resetSelection(true);
-                        return null;
-                    }
-                }
-            }
-        }
-
-        Plot plot = DatasourceProxy.getDatasource().newPlot(plotName, selectionTown, selectionDim, selectionX1, selectionY1, selectionZ1, selectionX2, selectionY2, selectionZ2);
-
-        MyTownUtils.takeSelectorToolFromPlayer(player);
-        resetSelection(true);
-        return plot;
+    public void setLastOnline(Date date) {
+        this.lastOnline = date;
     }
 
-    /**
-     * Expands the selection vertically, from the bottom of the world (y=0) to the top (y=256 (most of the time))
-     */
-    public void expandSelectionVert() {
-        // When selection is expanded vertically we'll show it's borders... (Temporary solution)
-
-        if(getPlayer() instanceof EntityPlayerMP)
-            VisualsHandler.instance.unmarkBlocks(null, (EntityPlayerMP) getPlayer());
-
-        selectionY1 = 1;
-        try {
-            selectionY2 = player.worldObj.getActualHeight() - 1;
-        } catch (NullPointerException e) {
-            MyTown.instance.LOG.error(ExceptionUtils.getStackTrace(e));
-            return;
-        }
-
-        if(getPlayer() instanceof EntityPlayerMP)
-            VisualsHandler.instance.markPlotBorders(selectionX1, selectionY1, selectionZ1, selectionX2, selectionY2, selectionZ2, selectionDim, (EntityPlayerMP) getPlayer(), null);
+    public void setTeleportCooldown(int cooldownTicks) {
+        this.teleportCooldown = cooldownTicks;
     }
 
-    public void resetSelection(boolean resetBlocks) {
-        firstSelectionActive = false;
-        secondSelectionActive = false;
-
-        if(resetBlocks && getPlayer() instanceof EntityPlayerMP) {
-            VisualsHandler.instance.unmarkBlocks(null, (EntityPlayerMP)getPlayer());
-        }
+    public int getTeleportCooldown() {
+        return teleportCooldown;
     }
 
-    /* ----- Block Whitelister ----- */
-
-    /**
-     * Starts the block selection by giving the player a Selector Tool for BlockWhitelists
-     */
-    public boolean startBlockSelection(FlagType flagType, String townName) {
-        //Give item to player
-        ItemStack selectionTool = new ItemStack(Items.wooden_hoe);
-        selectionTool.setStackDisplayName(Constants.EDIT_TOOL_NAME);
-        NBTTagList lore = new NBTTagList();
-        lore.appendTag(new NBTTagString(Constants.EDIT_TOOL_DESCRIPTION_BLOCK_WHITELIST));
-        lore.appendTag(new NBTTagString(EnumChatFormatting.DARK_AQUA + "Flag: " + flagType.toString()));
-        lore.appendTag(new NBTTagString(EnumChatFormatting.DARK_AQUA + "Town: " + townName));
-        lore.appendTag(new NBTTagString(EnumChatFormatting.DARK_AQUA + "Uses: 1"));
-        selectionTool.getTagCompound().getCompoundTag("display").setTag("Lore", lore);
-
-        return player.inventory.addItemStackToInventory(selectionTool);
+    public int getExtraBlocks() {
+        return extraBlocks;
     }
 
-    /* ----- Plot Selling ----- */
-
-    public boolean startPlotSell(String townName, int price) {
-        ItemStack signShop = new ItemStack(Items.wooden_hoe);
-        signShop.setStackDisplayName(Constants.PLOT_SELL_NAME);
-        NBTTagList lore = new NBTTagList();
-        lore.appendTag(new NBTTagString(EnumChatFormatting.DARK_AQUA + "Town: " + townName));
-        lore.appendTag(new NBTTagString(EnumChatFormatting.DARK_AQUA + "Price: " + price));
-        signShop.getTagCompound().getCompoundTag("display").setTag("Lore", lore);
-
-        boolean result = player.inventory.addItemStackToInventory(signShop);
-        if(result)
-            sendMessage(LocalizationProxy.getLocalization().getLocalization("mytown.notification.plot.sell.start"));
-        return result;
-    }
-
-    private MyTownDatasource getDatasource() {
-        return DatasourceProxy.getDatasource();
+    public void setExtraBlocks(int extraBlocks) {
+        this.extraBlocks = extraBlocks;
     }
 }

@@ -1,12 +1,13 @@
 package mytown.protection.eventhandlers;
 
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
-import mytown.core.utils.WorldUtils;
+import myessentials.utils.WorldUtils;
+import mytown.datasource.MyTownUniverse;
 import mytown.entities.TownBlock;
 import mytown.entities.Wild;
 import mytown.entities.flag.FlagType;
 import mytown.proxies.DatasourceProxy;
-import mytown.core.entities.ChunkPos;
+import myessentials.entities.ChunkPos;
 import net.minecraftforge.event.world.ExplosionEvent;
 
 import java.util.List;
@@ -30,16 +31,18 @@ public class ExtraEventsHandler {
     public void onExplosion(ExplosionEvent.Start ev) {
         if(ev.world.isRemote)
             return;
-        List<ChunkPos> chunks = WorldUtils.getChunksInBox((int) (ev.explosion.explosionX - ev.explosion.explosionSize - 2), (int) (ev.explosion.explosionZ - ev.explosion.explosionSize - 2), (int) (ev.explosion.explosionX + ev.explosion.explosionSize + 2), (int) (ev.explosion.explosionZ + ev.explosion.explosionSize + 2));
+        if (ev.isCanceled())
+            return;
+        List<ChunkPos> chunks = WorldUtils.getChunksInBox(ev.world.provider.dimensionId, (int) (ev.explosion.explosionX - ev.explosion.explosionSize - 2), (int) (ev.explosion.explosionZ - ev.explosion.explosionSize - 2), (int) (ev.explosion.explosionX + ev.explosion.explosionSize + 2), (int) (ev.explosion.explosionZ + ev.explosion.explosionSize + 2));
         for(ChunkPos chunk : chunks) {
-            TownBlock block = DatasourceProxy.getDatasource().getBlock(ev.world.provider.dimensionId, chunk.getX(), chunk.getZ());
+            TownBlock block = MyTownUniverse.instance.blocks.get(ev.world.provider.dimensionId, chunk.getX(), chunk.getZ());
             if(block == null) {
-                if(!(Boolean)Wild.instance.getValue(FlagType.EXPLOSIONS)) {
+                if(!(Boolean)Wild.instance.flagsContainer.getValue(FlagType.EXPLOSIONS)) {
                     ev.setCanceled(true);
                     return;
                 }
             } else {
-                if (!(Boolean) block.getTown().getValue(FlagType.EXPLOSIONS)) {
+                if (!(Boolean) block.getTown().flagsContainer.getValue(FlagType.EXPLOSIONS)) {
                     ev.setCanceled(true);
                     block.getTown().notifyEveryone(FlagType.EXPLOSIONS.getLocalizedTownNotification());
                     return;

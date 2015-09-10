@@ -1,250 +1,141 @@
 package mytown.config.json;
 
 import com.google.common.reflect.TypeToken;
+import com.google.gson.GsonBuilder;
+import com.google.gson.TypeAdapter;
+import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonToken;
+import com.google.gson.stream.JsonWriter;
+import myessentials.json.JSONConfig;
 import mytown.MyTown;
-import mytown.core.command.CommandManager;
 import mytown.entities.Rank;
-import org.apache.commons.lang3.exception.ExceptionUtils;
 
-import java.io.*;
-import java.util.*;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
-/**
- * JSON Default ranks config
- */
-public class RanksConfig extends JSONConfig<RanksConfig.Wrapper> {
+public class RanksConfig extends JSONConfig<Rank> {
+
     public RanksConfig(String path) {
-        super(path);
-        gsonType = new TypeToken<List<Wrapper>>() {}.getType();
+        super(path, "DefaultTownRanks");
+        this.gsonType = new TypeToken<List<Rank>>() {}.getType();
+        this.gson = new GsonBuilder().registerTypeAdapter(gsonType, new RankTypeAdapter()).setPrettyPrinting().create();
     }
 
     @Override
-    protected List<Wrapper> create() {
-        List<Wrapper> wrappers = new ArrayList<Wrapper>();
-        try {
-            Writer writer = new FileWriter(path);
+    public void create(List<Rank> items) {
+        Rank.initDefaultRanks();
+        items.addAll(Rank.defaultRanks);
+        super.create(items);
+    }
 
-            String mayorRank = "Mayor";
-            String assistantRank = "Assistant";
-            String residentRank = "Resident";
-            List<String> pMayor = new ArrayList<String>();
-            List<String> pAssistant = new ArrayList<String>();
-            List<String> pResident = new ArrayList<String>();
+    @Override
+    public List<Rank> read() {
+        List<Rank> ranks = super.read();
 
-            // Filling arrays
+        Rank.defaultRanks.clear();
+        Rank.defaultRanks.addAll(ranks);
 
-            for (String s : CommandManager.commandList.keySet()) {
-                if (s.startsWith("mytown.cmd")) {
-                    pMayor.add(s);
-                    if (s.startsWith("mytown.cmd.assistant") || s.startsWith("mytown.cmd.everyone") || s.startsWith("mytown.cmd.outsider")) {
-                        pAssistant.add(s);
+        return ranks;
+    }
+
+    @Override
+    public boolean validate(List<Rank> items) {
+        boolean isValid = true;
+        for(Rank.Type type : Rank.Type.values()) {
+            if(type.unique) {
+                List<Rank> rankOfType = new ArrayList<Rank>();
+                for(Rank rank : items) {
+                    if(rank.getType() == type) {
+                        rankOfType.add(rank);
                     }
-                    if (s.startsWith("mytown.cmd.everyone") || s.startsWith("mytown.cmd.outsider")) {
-                        pResident.add(s);
+                }
+
+                if(rankOfType.size() == 0) {
+                    isValid = false;
+                    MyTown.instance.LOG.error("Unique type of Rank was not found in " + name);
+                    items.add(Rank.defaultRanks.get(type));
+                } else if(rankOfType.size() > 1) {
+                    isValid = false;
+                    MyTown.instance.LOG.error("Unique type of Rank was found multiple times in " + name + ". Setting all aside from the first to type regular.");
+                    for(int i = 1; i < rankOfType.size(); i++) {
+                        rankOfType.get(i).setType(Rank.Type.REGULAR);
                     }
                 }
             }
-
-            // Sorting
-
-            Collections.sort(pMayor);
-            Collections.sort(pAssistant);
-            Collections.sort(pResident);
-
-            // Adding them to the defaults
-
-            Rank.defaultRanks.put(mayorRank, pMayor);
-            Rank.defaultRanks.put(assistantRank, pAssistant);
-            Rank.defaultRanks.put(residentRank, pResident);
-
-            Rank.theDefaultRank = residentRank;
-            MyTown.instance.LOG.info("Added mayor rank.");
-            Rank.theMayorDefaultRank = mayorRank;
-
-
-            // Preparing to add them to JSON file
-
-            wrappers.add(new Wrapper(mayorRank, pMayor, RankType.MAYOR));
-            wrappers.add(new Wrapper(assistantRank, pAssistant, RankType.OTHER));
-            wrappers.add(new Wrapper(residentRank, pResident, RankType.RESIDENT));
-
-            // Adding to JSON file
-            gson.toJson(wrappers, gsonType, writer);
-
-            writer.close();
-            MyTown.instance.LOG.info("Created new DefaultRanks file successfully!");
-        } catch (IOException e) {
-            MyTown.instance.LOG.error("Failed to create DefaultRanks file!");
-            MyTown.instance.LOG.error(ExceptionUtils.getStackTrace(e));
         }
-        return wrappers;
+
+        return isValid;
     }
 
-    @Override
-    public void write(List<Wrapper> items) {
-        try {
-            Writer writer = new FileWriter(path);
-            gson.toJson(items, gsonType, writer);
-            writer.close();
+    public class RankTypeAdapter extends TypeAdapter<List<Rank>>{
 
-            MyTown.instance.LOG.info("Updated DefaultRanks file successfully!");
-        } catch (IOException e) {
-            MyTown.instance.LOG.error("Failed to update DefaultRanks file!");
-            MyTown.instance.LOG.error(ExceptionUtils.getStackTrace(e));
+        @Override
+        public void write(JsonWriter out, List<Rank> ranks) throws IOException {
+            out.beginArray();
+            for(Rank rank : ranks) {
+                out.beginObject();
+                out.name("name").value(rank.getName());
+                out.name("type").value(rank.getType().toString());
+                out.name("permissions").beginArray();
+                for(String perm : rank.permissionsContainer) {
+                    out.value(perm);
+                }
+                out.endArray();
+                out.endObject();
+            }
+            out.endArray();
         }
-    }
 
-    @Override
-    public List<Wrapper> read() {
-        List<Wrapper> wrappedObjects = new ArrayList<Wrapper>();
-        try {
-            Reader reader = new FileReader(path);
+        @Override
+        public List<Rank> read(JsonReader in) throws IOException {
+            List<Rank> ranks = new ArrayList<Rank>();
 
-            // Just for showing the nodes that were omitted.
-            List<String> notExistingPermNodes = new ArrayList<String>();
-            wrappedObjects = gson.fromJson(reader, gsonType);
+            in.beginArray();
+            String nextName;
+            while(in.peek() != JsonToken.END_ARRAY) {
+                List<String> permissionsContainer = new ArrayList<String>();
+                String name = null;
+                Rank.Type type = null;
 
-            for (Wrapper w : wrappedObjects) {
-                for (Iterator<String> it = w.permissions.iterator(); it.hasNext(); ) {
-                    String s = it.next();
-                    if (!CommandManager.commandList.containsKey(s)) {
-                        // Omitting permissions that don't exist
-                        boolean ok = true;
-                        for(String s1 : notExistingPermNodes)
-                            if(s1.equals(s))
-                                ok = false;
-                        if(!CommandManager.commandList.containsKey(s.substring(1))) {
-                            if (ok) {
-                                notExistingPermNodes.add(s);
-                                MyTown.instance.LOG.error("Permission node " + s + " does not exist! Removing...");
-                            }
-                            it.remove();
+                in.beginObject();
+                while(in.peek() != JsonToken.END_OBJECT) {
+                    nextName = in.nextName();
+
+                    if ("name".equals(nextName)) {
+                        name = in.nextString();
+                        continue;
+                    }
+
+                    if ("type".equals(nextName)) {
+                        type = Rank.Type.valueOf(in.nextString().toUpperCase());
+                        continue;
+                    }
+
+                    if ("permissions".equals(nextName)) {
+                        in.beginArray();
+                        while (in.peek() != JsonToken.END_ARRAY) {
+                            permissionsContainer.add(in.nextString());
                         }
+                        in.endArray();
                     }
                 }
-            }
-            MyTown.instance.LOG.info("Loaded DefaultRanks successfully!");
-        } catch (Exception e) {
-            MyTown.instance.LOG.info("Failed to read from DefaultRanks file!");
-            MyTown.instance.LOG.error(ExceptionUtils.getStackTrace(e));
-        }
-        return wrappedObjects;
-    }
+                in.endObject();
 
-    @Override
-    public void update(List<Wrapper> items) {
-        boolean updated = false;
-        for(String node : CommandManager.commandList.keySet()) {
-            if(node.startsWith("mytown.cmd")) {
-                for (Wrapper wrapper : items) {
-                    if(wrapper.type == RankType.MAYOR ||
-                            wrapper.type == RankType.RESIDENT && (node.startsWith("mytown.cmd.everyone") || node.startsWith("mytown.cmd.outsider")) ||
-                            wrapper.type == RankType.ASSISTANT && (node.startsWith("mytown.cmd.assistant") || node.startsWith("mytown.cmd.everyone") || node.startsWith("mytown.cmd.outsider")))
-                        if (!wrapper.permissions.contains(node) && !wrapper.permissions.contains("-" + node)) {
-                            wrapper.permissions.add(node);
-                            MyTown.instance.LOG.info("Permission node " + node + " is missing from the configs in rank " + wrapper.type);
-                            updated = true;
-                        }
+                if(name == null) {
+                    throw new IOException("Rank name cannot be null!");
                 }
-            }
-        }
-
-        boolean mayorExists = false, residentExists = false, assistantExists = false;
-        for(Wrapper wrapper : items) {
-            Collections.sort(wrapper.permissions);
-            if(wrapper.type != null) {
-                switch (wrapper.type) {
-                    case MAYOR:
-                        mayorExists = true;
-                        break;
-                    case RESIDENT:
-                        residentExists = true;
-                        break;
-                    case ASSISTANT:
-                        assistantExists = true;
-                        break;
+                if(type == null) {
+                    throw new IOException("Rank type cannot be null!");
                 }
+
+                Rank rank = new Rank(name, null, type);
+                rank.permissionsContainer.addAll(permissionsContainer);
+                ranks.add(rank);
             }
-        }
+            in.endArray();
 
-        if(!mayorExists) {
-            MyTown.instance.LOG.info("Ranks config is missing Mayor rank. Adding...");
-            List<String> permissions = new ArrayList<String>();
-            for(String node : CommandManager.commandList.keySet()) {
-                if(node.startsWith("mytown.cmd")) {
-                    permissions.add(node);
-                }
-            }
-            Collections.sort(permissions);
-            items.add(new Wrapper("Mayor", permissions, RankType.MAYOR));
-            updated = true;
-        }
-
-        if(!assistantExists) {
-            MyTown.instance.LOG.info("Ranks config is missing Assistant rank. Adding...");
-            List<String> permissions = new ArrayList<String>();
-            for(String node : CommandManager.commandList.keySet()) {
-                if(node.startsWith("mytown.cmd.assistant") || node.startsWith("mytown.cmd.everyone") || node.startsWith("mytown.cmd.outsider")) {
-                    permissions.add(node);
-                }
-            }
-            Collections.sort(permissions);
-            items.add(new Wrapper("Assistant", permissions, RankType.ASSISTANT));
-            updated = true;
-        }
-
-        if(!residentExists) {
-            MyTown.instance.LOG.info("Ranks config is missing Resident rank. Adding...");
-            List<String> permissions = new ArrayList<String>();
-            for(String node : CommandManager.commandList.keySet()) {
-                if(node.startsWith("mytown.cmd.everyone") || node.startsWith("mytown.cmd.outsider")) {
-                    permissions.add(node);
-                }
-            }
-            Collections.sort(permissions);
-            items.add(new Wrapper("Resident", permissions, RankType.RESIDENT));
-            updated = true;
-        }
-
-        for(Wrapper wrapper : items) {
-            List<String> newPerms = new ArrayList<String>();
-            for(String node : wrapper.permissions) {
-                if(!node.startsWith("-"))
-                    newPerms.add(node);
-            }
-
-            Rank.defaultRanks.put(wrapper.name, newPerms);
-            if (wrapper.type == RankType.RESIDENT)
-                Rank.theDefaultRank = wrapper.name;
-            if (wrapper.type == RankType.MAYOR)
-                Rank.theMayorDefaultRank = wrapper.name;
-        }
-
-        if(updated)
-            write(items);
-    }
-
-    private enum RankType {
-        RESIDENT,
-        MAYOR,
-        ASSISTANT,
-        OTHER
-    }
-
-    /**
-     * Wraps around a set of fields needed to instantiate Rank objects.
-     */
-    public class Wrapper {
-        public final String name;
-        public final RankType type;
-        public final List<String> permissions;
-
-        public Wrapper(String name, List<String> permissions, RankType type) {
-            this.name = name;
-            this.permissions = permissions;
-            this.type = type;
+            return ranks;
         }
     }
-
-
 }

@@ -6,18 +6,17 @@ import cpw.mods.fml.common.Mod.EventHandler;
 import cpw.mods.fml.common.Mod.Instance;
 import cpw.mods.fml.common.event.*;
 import cpw.mods.fml.common.registry.GameRegistry;
+import myessentials.Localization;
+import myessentials.config.ConfigProcessor;
+import myessentials.json.JSONConfig;
+import myessentials.utils.ClassUtils;
+import myessentials.utils.StringUtils;
+import mypermissions.api.command.CommandManager;
 import mytown.commands.*;
 import mytown.config.Config;
 import mytown.config.json.FlagsConfig;
-import mytown.config.json.JSONConfig;
 import mytown.config.json.RanksConfig;
 import mytown.config.json.WildPermsConfig;
-import mytown.core.Localization;
-import mytown.core.utils.ClassUtils;
-import mytown.core.logger.Log;
-import mytown.core.utils.StringUtils;
-import mytown.core.command.CommandManager;
-import mytown.core.config.ConfigProcessor;
 import mytown.crash.DatasourceCrashCallable;
 import mytown.handlers.SafemodeHandler;
 import mytown.handlers.Ticker;
@@ -28,16 +27,13 @@ import mytown.protection.eventhandlers.ExtraEventsHandler;
 import mytown.protection.json.ProtectionParser;
 import mytown.proxies.DatasourceProxy;
 import mytown.proxies.EconomyProxy;
-import mytown.proxies.LocalizationProxy;
 import mytown.util.Constants;
 import mytown.util.exceptions.ConfigException;
-import net.minecraft.command.ICommandSender;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.common.config.Configuration;
-import org.apache.commons.lang3.exception.ExceptionUtils;
+import org.apache.logging.log4j.Logger;
 
 import java.io.File;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -47,7 +43,8 @@ import java.util.List;
 public class MyTown {
     @Instance
     public static MyTown instance;
-    public Log LOG;
+    public Logger LOG;
+    public Localization LOCAL;
     // ---- Configuration files ----
     private Configuration config;
 
@@ -56,16 +53,14 @@ public class MyTown {
     @EventHandler
     public void preInit(FMLPreInitializationEvent ev) {
         // Setup Loggers
-        LOG = new Log(ev.getModLog());
+        LOG = ev.getModLog();
 
         Constants.CONFIG_FOLDER = ev.getModConfigurationDirectory().getPath() + "/MyTown/";
 
         // Read Configs
         config = new Configuration(new File(Constants.CONFIG_FOLDER, "MyTown.cfg"));
         ConfigProcessor.load(config, Config.class);
-
-        LocalizationProxy.load();
-
+        LOCAL = new Localization(Constants.CONFIG_FOLDER, Config.localization, "/mytown/localization/", MyTown.class);
         ProtectionParser.setFolderPath(ev.getModConfigurationDirectory() + "/MyTown/protections");
 
         registerHandlers();
@@ -97,15 +92,16 @@ public class MyTown {
         registerCommands();
         Commands.populateCompletionMap();
 
-        jsonConfigs.add(new RanksConfig(Constants.CONFIG_FOLDER + "/DefaultRanks.json"));
         jsonConfigs.add(new WildPermsConfig(Constants.CONFIG_FOLDER + "/WildPerms.json"));
         jsonConfigs.add(new FlagsConfig(Constants.CONFIG_FOLDER + "/DefaultFlags.json"));
+        jsonConfigs.add(new RanksConfig(Constants.CONFIG_FOLDER + "/DefaultTownRanks.json"));
         for (JSONConfig jsonConfig : jsonConfigs) {
             jsonConfig.init();
         }
 
         ProtectionParser.start();
         SafemodeHandler.setSafemode(!DatasourceProxy.start(config));
+        LOG.info("Started");
     }
 
     @EventHandler
@@ -119,28 +115,40 @@ public class MyTown {
      * Registers all commands
      */
     private void registerCommands() {
-        Method m = null;
-        try {
-            m = Commands.class.getMethod("firstPermissionBreach", String.class, ICommandSender.class);
-        } catch (Exception e) {
-            LOG.info("Failed to get first permission breach method.");
-            LOG.error(ExceptionUtils.getStackTrace(e));
+        CommandManager.registerCommands(CommandsEveryone.class, null, LOCAL, new RankPermissionManager());
+        CommandManager.registerCommands(CommandsAssistant.class, "mytown.cmd", LOCAL, null);
+        if (Config.modifiableRanks)
+            CommandManager.registerCommands(CommandsAssistant.ModifyRanks.class, "mytown.cmd", LOCAL, null);
+        CommandManager.registerCommands(CommandsAdmin.class, null, LOCAL, null);
+        if(Config.enablePlots) {
+            CommandManager.registerCommands(CommandsEveryone.Plots.class, "mytown.cmd", LOCAL, null);
+            CommandManager.registerCommands(CommandsAssistant.Plots.class, "mytown.cmd", LOCAL, null);
+            CommandManager.registerCommands(CommandsAdmin.Plots.class, "mytown.adm.cmd", LOCAL, null);
         }
 
-        CommandManager.registerCommands(CommandsEveryone.class, m);
-        CommandManager.registerCommands(CommandsAssistant.class, m);
-        if (Config.modifiableRanks)
-            CommandManager.registerCommands(CommandsAssistant.ModifyRanks.class, m);
-        if(Config.enablePlots)
-            CommandManager.registerCommands(CommandsEveryone.Plots.class, m);
-        CommandManager.registerCommands(CommandsAdmin.class);
-        CommandManager.registerCommands(CommandsOutsider.class, m);
+        CommandManager.registerCommands(CommandsOutsider.class, "mytown.cmd", LOCAL, null);
     }
 
     public WildPermsConfig getWildConfig() {
         for(JSONConfig jsonConfig : jsonConfigs) {
             if(jsonConfig instanceof WildPermsConfig)
                 return (WildPermsConfig)jsonConfig;
+        }
+        return null;
+    }
+
+    public RanksConfig getRanksConfig() {
+        for(JSONConfig jsonConfig : jsonConfigs) {
+            if(jsonConfig instanceof RanksConfig)
+                return (RanksConfig)jsonConfig;
+        }
+        return null;
+    }
+
+    public FlagsConfig getFlagsConfig() {
+        for(JSONConfig jsonConfig : jsonConfigs) {
+            if(jsonConfig instanceof FlagsConfig)
+                return (FlagsConfig)jsonConfig;
         }
         return null;
     }
@@ -210,13 +218,5 @@ public class MyTown {
      */
     private boolean checkExtraEvents() {
         return ClassUtils.isClassLoaded("net.minecraftforge.event.world.ExplosionEvent");
-    }
-
-    // ////////////////////////////
-    // Helpers
-    // ////////////////////////////
-
-    public static Localization getLocal() {
-        return LocalizationProxy.getLocalization();
     }
 }

@@ -2,6 +2,7 @@ package mytown.util;
 
 import mytown.MyTown;
 import mytown.datasource.MyTownDatasource;
+import mytown.datasource.MyTownUniverse;
 import mytown.entities.BlockWhitelist;
 import mytown.entities.Town;
 import mytown.entities.TownBlock;
@@ -29,7 +30,7 @@ public class MyTownUtils {
      * Returns the town at the specified position or null if nothing found.
      */
     public static Town getTownAtPosition(int dim, int x, int z) {
-        TownBlock block = getDatasource().getBlock(dim, x, z);
+        TownBlock block = MyTownUniverse.instance.blocks.get(dim, x, z);
         if (block == null)
             return null;
         return block.getTown();
@@ -40,26 +41,6 @@ public class MyTownUtils {
      */
     protected static Town getTownFromEntity(Entity entity) {
         return getTownAtPosition(entity.dimension, entity.chunkCoordX, entity.chunkCoordZ);
-    }
-
-    /**
-     * Returns the Flag name from the selector's Lore tag
-     */
-    public static String getFlagNameFromLore(EntityPlayer player) {
-        ItemStack currentStack = player.inventory.getCurrentItem();
-        NBTTagList lore = currentStack.getTagCompound().getCompoundTag("display").getTagList("Lore", 8);
-        String flagLore = lore.getStringTagAt(1);
-        return flagLore.substring(8); // We use hacks in here
-    }
-
-    /**
-     * Returns the Town name from the selector's Lore tag
-     */
-    public static String getTownNameFromLore(EntityPlayer player) {
-        ItemStack currentStack = player.inventory.getCurrentItem();
-        NBTTagList lore = currentStack.getTagCompound().getCompoundTag("display").getTagList("Lore", 8);
-        String flagLore = lore.getStringTagAt(2);
-        return flagLore.substring(8);
     }
 
     /**
@@ -74,7 +55,7 @@ public class MyTownUtils {
         for (int i = 0; i < 6; i++) {
             TileEntity found = te.getWorldObj().getTileEntity(te.xCoord + dx[i], te.yCoord + dy[i], te.zCoord + dz[i]);
             if (found != null && type.isAssignableFrom(found.getClass())) {
-                MyTown.instance.LOG.info("Found tile entity " + found + " for class " + type.getName());
+                MyTown.instance.LOG.info("Found tile entity {} for class {}", found, type.getName());
                 result.add(found);
             }
         }
@@ -88,7 +69,7 @@ public class MyTownUtils {
         Town town = getTownAtPosition(dim, x >> 4, z >> 4);
         if (town == null)
             return false;
-        BlockWhitelist bw = town.getBlockWhitelist(dim, x, y, z, flagType);
+        BlockWhitelist bw = town.blockWhitelistsContainer.get(dim, x, y, z, flagType);
         if (bw != null) {
             if (bw.isDeleted()) {
                 getDatasource().deleteBlockWhitelist(bw, town);

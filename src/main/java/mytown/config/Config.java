@@ -1,10 +1,11 @@
 package mytown.config;
 
 import cpw.mods.fml.common.registry.GameRegistry;
-import mytown.core.utils.ClassUtils;
-import mytown.core.config.ConfigProperty;
+import myessentials.utils.ClassUtils;
+import myessentials.config.ConfigProperty;
 import net.minecraft.init.Items;
 
+@SuppressWarnings({"squid:S1444"}) // Suppresses SonarQube warnings to mark fields in Config as final.
 public class Config {
 
     /* ----- General Config ----- */
@@ -97,7 +98,7 @@ public class Config {
     public static int maxPlotsArea = 300;
 
     @ConfigProperty(category = "plots", name = "maxPlotsHeight", comment = "The maximum height a plot can have. (Y) [255 for unlimited height.]")
-    public static int maxPlotsHeight = 255;
+    public static int maxPlotsHeight = 256;
 
     @ConfigProperty(category = "plots", name = "enablePlots", comment = "Set this to false to disable all types of plot interaction.")
     public static boolean enablePlots = true;

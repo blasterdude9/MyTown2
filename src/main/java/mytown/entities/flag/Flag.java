@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import mytown.MyTown;
+import myessentials.utils.ColorUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 
 import java.lang.reflect.Type;
@@ -11,7 +12,7 @@ import java.lang.reflect.Type;
 /**
  * Another attempt at the dreaded town flags :P
  */
-public class Flag<T> {
+public class Flag<T> implements Comparable<Flag<T>>{
 
     private FlagType flagType;
     private T value;
@@ -95,5 +96,24 @@ public class Flag<T> {
 
     public FlagType getFlagType() {
         return flagType;
+    }
+
+    @Override
+    public int compareTo(Flag<T> other) {
+        return this.flagType.toString().compareTo(other.flagType.toString());
+    }
+
+    @Override
+    public String toString() {
+        return toString(ColorUtils.colorValueVar);
+    }
+
+    public String toString(String valueColor) {
+
+        String flagName = flagType.toString().toLowerCase();
+        String value = valueToString();
+        String description = flagType.getLocalizedDescription();
+
+        return String.format(ColorUtils.colorFlag + "%s" + ColorUtils.colorComma + "[" + valueColor+ "%s" + ColorUtils.colorComma + "]:" + ColorUtils.colorComma + " %s", flagName, value, description);
     }
 }

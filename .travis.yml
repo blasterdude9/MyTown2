@@ -4,7 +4,7 @@ notifications:
   email: false
   irc:
     channels:
-      - "irc.esper.net#MyTown"
+      - ""
     template:
       - "%{repository_name} (%{branch}): %{commit_message} - %{author}"
       - "Result: %{result}"
